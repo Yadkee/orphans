@@ -16,7 +16,12 @@ To get a timetable or calendar first configure the config file
 and then run the script.
 
 ## Screenshots:
+Timetable:
+
 ![Timetable img](/examples/timetable.png "Timetable example")
+
+
+Calendar:
 
 ![Calendar img](/examples/calendar.png "Calendar example")
 
