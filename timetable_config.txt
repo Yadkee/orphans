@@ -1,0 +1,20 @@
+// This is the config file for timetable.py
+// Introduce the path name of the output files (png and pdf)
+//  extension will added later. Program expects just a name
+//  (e.g "-> path=Output" would generate Output.pdf and Output.png)
+-> path=timetable
+// Introduce the periods in the following format:
+//  Hour, Minute, Duration (in minutes), Monday, Tuesday, Wednesday, etc...
+// If any period is left in blank the image will also have blank spaces
+//  !But remember using commas!
+*PERIODS*
+8,  20, 55: History, Chemistry, Maths,     Literature, P.E.
+9,  15, 55: FREE,    Maths,     Chemistry, FREE,       History
+11, 5,  25:      ,        ,     Only Wed,      ,
+// Assign colors to your activities (or not, it's up to you)
+// Use either html tag or 3 comma separated RGB values
+// VALID: "#FF00DD" or "255, 0, 221"
+*COLORS*
+History:   230, 230, 230
+Chemistry: 50, 255, 50
+Maths:     #FFFF00

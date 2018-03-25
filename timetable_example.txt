@@ -1,0 +1,26 @@
+// This is the config file for timetable.py
+// Introduce the path name of the output files (png and pdf)
+//  extension will added later. Program expects just a name
+//  (e.g "-> path=Output" would generate Output.pdf and Output.png)
+-> path=timetable
+*PERIODS*
+8,  20, 55: Dibujo, Dibujo,   Física,   Historia, Historia
+9,  15, 55: Inglés, T. Ind,   Inglés,   TIC,      Dibujo
+10, 10, 55: Mates,  Lengua,   Historia, Lengua,   Física
+11, 5,  25: P,      A,        T,        I,        O
+11, 30, 55: FAG,    Historia, Mates,    Mates,    Inglés
+12, 25, 55: Lengua, TIC,      T. Ind,   Física,   Lengua
+13, 20, 55: Física, Inglés,   FAG,      Inglés,   Mates
+14, 15, 55:       ,       ,      ,      Dibujo,
+17, 30, 60: Pádel,        ,   Pádel,          ,
+*COLORS*
+Dibujo:   230, 230, 230
+Inglés:   50, 255, 50
+Mates:    255, 255, 0
+FAG:      255, 200, 200
+Lengua:   255, 150, 0
+Física:   100, 100, 255
+Pádel:    180, 0, 100
+T. Ind:   255, 0, 0
+Historia: 255, 0, 150
+TIC:      50, 50, 190
