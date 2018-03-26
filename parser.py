@@ -5,6 +5,7 @@ http://hg.alliedmods.net/hl2sdks/hl2sdk-css/file/1901d5b74430/public/demofile/de
 https://github.com/saul/demofile/blob/master/demo.js
 https://wiki.alliedmods.net/Counter-Strike:_Global_Offensive_Events
 https://developers.google.com/protocol-buffers/docs/encoding
+https://gitlab.ksnetwork.es/snippets/8
 dem_signon 	1
 dem_packet 	2
 dem_synctick 	3
@@ -13,6 +14,13 @@ dem_usercmd 	5
 dem_datatables 	6
 dem_stop 	7
 dem_stringtables 	9
+La información para la fórmula de Rating es:
+- Kills per Round
+=(Kills/Rounds)/0.679
+- Survived Rounds
+=((Rounds-Deaths)/Rounds)/0.317
+- Multikill Rating
+=((1K+(4*2K)+(9*3K)+(16*4K)+ (25*5K))/Rounds)/1.277
 """
 import struct
 from collections import namedtuple
@@ -555,6 +563,7 @@ class Game():
                     print(cmd, msgType)
                 continue
             elif cmd == 25:  # svc_GameEvent
+                continue
                 event["type"] = "svc_GameEvent"
                 event["keys"] = []
                 for f, t in message:
@@ -592,8 +601,8 @@ class Game():
                                 print("", cmd, f2, t2)
                             lastIndex = f2
                         try:
-                            if key["type"] == 1:
-                                print("DEAD", key, event)
+                            if key["type"] == 50:
+                                print("player_death", key, event)
                         except KeyError:
                             pass
                         event["keys"].append(key)
@@ -667,6 +676,9 @@ class Game():
 
     def handle_datatables(self):
         self.buffer.skipIbytes()
+        return
+        chunk = Buffer(self.buffer.readIBytes())
+        numTables = chunk.readByte()
 
     def handle_stringtables(self):
         self.buffer.skipIbytes()
@@ -702,6 +714,7 @@ class Game():
 def main():
     t0 = time()
     path = "90_unik-leadores_de_train.dem"
+    # path = "ksn-onlyheroes-rov_gaming day-de_train.dem"
     with open(path, "rb") as f:
         data = f.read()
     game = Game(data)
