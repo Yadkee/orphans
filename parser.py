@@ -1,10 +1,10 @@
 #! python3
 """
-Help from:    https://developer.valvesoftware.com/wiki/DEM_Format#Demo_Header
-              http://hg.alliedmods.net/hl2sdks/hl2sdk-css/file/1901d5b74430/public/demofile/demoformat.h
-              https://github.com/saul/demofile/blob/master/demo.js
-              https://wiki.alliedmods.net/Counter-Strike:_Global_Offensive_Events
-              https://developers.google.com/protocol-buffers/docs/encoding
+https://developer.valvesoftware.com/wiki/DEM_Format#Demo_Header
+http://hg.alliedmods.net/hl2sdks/hl2sdk-css/file/1901d5b74430/public/demofile/demoformat.h
+https://github.com/saul/demofile/blob/master/demo.js
+https://wiki.alliedmods.net/Counter-Strike:_Global_Offensive_Events
+https://developers.google.com/protocol-buffers/docs/encoding
 dem_signon 	1
 dem_packet 	2
 dem_synctick 	3
@@ -129,6 +129,7 @@ class Game():
         self.header = self.Header(*unpackedValues)._asdict()
         self.buffer = Buffer(data[self.headerStruct.size:])
         self.tables = {}
+        self.convars = {}
 
         self.print_header()
         self.parse()
@@ -151,12 +152,12 @@ class Game():
         #  resampled(36) [vector, angle, angle]
         # OriginViewAngles 2 (76)
         # ServerFrame and ClientFrame (8) (could get ping from delta)
+        # In GOTV ping is always 0
         data.skip(160)
         chunk = Buffer(data.readIBytes())
         while chunk.canIterate:
             cmd = chunk.readVarInt()
-            size = chunk.readVarInt()
-            message = Buffer(chunk.readBytes(size))
+            message = Buffer(chunk.readVBytes())
             mrvi = message.readVarInt
             mrvb = message.readVBytes
             event = OrderedDict()
@@ -211,6 +212,10 @@ class Game():
                                     else:
                                         print(" ", cmd, f2, t2)
                                 event["convars"].append(cvar)
+                                try:
+                                    self.convars[cvar["name"]] = cvar["value"]
+                                except KeyError:
+                                    print(cmd, cvar)
                             else:
                                 print("", cmd, f2, t2)
                     else:
@@ -550,26 +555,66 @@ class Game():
                     print(cmd, msgType)
                 continue
             elif cmd == 25:  # svc_GameEvent
-                continue
                 event["type"] = "svc_GameEvent"
+                event["keys"] = []
                 for f, t in message:
-                    pass
-                continue
-                _ = """	message key_t {
-                            optional int32 type = 1;
-                            optional string val_string = 2;
-                            optional float val_float = 3;
-                            optional int32 val_long = 4;
-                            optional int32 val_short = 5;
-                            optional int32 val_byte = 6;
-                            optional bool val_bool = 7;
-                            optional uint64 val_uint64 = 8;
-                            optional bytes val_wstring = 9;
-                        }
-                        optional string event_name = 1;
-                        optional int32 eventid = 2;
-                        repeated .CSVCMsg_GameEvent.key_t keys = 3;
-                        optional int32 passthrough = 4;"""
+                    if f == 1:
+                        event["event_name"] = decode(mrvb())
+                    elif f == 2:
+                        event["eventid"] = mrvi()
+                    elif f == 3:
+                        _ = mrvi()
+                        key = OrderedDict()
+                        lastIndex = 0
+                        for f2, t2 in message:
+                            if f2 < lastIndex or (f2 == 3 and t2 != 5):
+                                message.undo(1)
+                                break
+                            elif f2 == 1:
+                                key["type"] = mrvi()
+                            elif f2 == 2:
+                                key["val_string"] = decode(mrvb())
+                            elif f2 == 3:
+                                key["val_float"] = message.readFloat()
+                            elif f2 == 4:
+                                key["val_long"] = mrvi()
+                            elif f2 == 5:
+                                key["val_short"] = mrvi()
+                            elif f2 == 6:
+                                key["val_byte"] = mrvi()
+                            elif f2 == 7:
+                                key["val_bool"] = mrvi()
+                            elif f2 == 8:
+                                key["val_uint64"] = mrvi()
+                            elif f2 == 9:
+                                key["val_wstring"] = mrvb()
+                            else:
+                                print("", cmd, f2, t2)
+                            lastIndex = f2
+                        try:
+                            if key["type"] == 1:
+                                print("DEAD", key, event)
+                        except KeyError:
+                            pass
+                        event["keys"].append(key)
+                    elif f == 4:
+                        parsed["passthrough"] = drvi()
+                    else:
+                        print(cmd, f, t)
+                # message key_t:
+                #  optional int32 type = 1;
+                #  optional string val_string = 2;
+                #  optional float val_float = 3;
+                #  optional int32 val_long = 4;
+                #  optional int32 val_short = 5;
+                #  optional int32 val_byte = 6;
+                #  optional bool val_bool = 7;
+                #  optional uint64 val_uint64 = 8;
+                #  optional bytes val_wstring = 9;
+                # optional string event_name = 1;
+                # optional int32 eventid = 2;
+                # repeated .CSVCMsg_GameEvent.key_t keys = 3;
+                # optional int32 passthrough = 4;
             elif cmd == 26:  # svc_PacketEntities
                 continue
             elif cmd == 27:  # svc_TempEntities
