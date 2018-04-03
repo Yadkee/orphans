@@ -12,6 +12,7 @@ try:
 except ImportError:
     HAS_PIL = False
 import tkinter as tk
+from logic import movements
 
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 logger = getLogger("game")
@@ -22,6 +23,9 @@ NAMES = [i + j for i in ("b", "w") for j in PIECES]
 CHARS = ("♝", "♚", "♞", "♟", "♛", "♜", "♗", "♔", "♘", "♙", "♕", "♖")
 #         1     2     3     4     5    6     11    12    13   14    15    16
 CHARACTERS = dict(zip(NAMES, CHARS))
+PIECES = (1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16)
+valueGen = ([movements(piece, pos) for pos in range(64)] for piece in PIECES)
+MOVEMENTS = dict(zip(PIECES, valueGen))
 
 
 class App(tk.Frame):
@@ -90,6 +94,7 @@ if __name__ == "__main__":
     root.config(bg="gray")
     root.iconbitmap(default=join("media", "icon.ico"))
     root.geometry("%dx%d+0+0" % (imageSize8, imageSize8))
+    root.minsize(imageSize8, imageSize8)
     root.columnconfigure(0, weight=1)
     root.rowconfigure(0, weight=1)
     app = App(root, imageSize)
