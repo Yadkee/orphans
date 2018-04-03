@@ -44,6 +44,13 @@ class App(tk.Frame):
                                font=("Arial", -imageSize))
             button.grid(column=a % 8, row=a // 8, sticky="NSEW")
             self.buttons.append(button)
+        self.start()
+
+    def start(self):
+        self.board = ([6, 3, 1, 5, 2, 1, 3, 6] + [4] * 8 +
+                      [0] * 32 +
+                      [14] * 8 + [16, 13, 11, 15, 12, 11, 13, 16])
+        [self.change_button(a, piece) for a, piece in enumerate(self.board)]
 
     def press(self, button):
         def wrapper():
@@ -51,6 +58,9 @@ class App(tk.Frame):
         return wrapper
 
     def change_button(self, button, value):
+        if not value:
+            self.buttons[button].config(text="", image=None)
+            return
         d, m = divmod(value, 10)
         toIndex = m - 1 + d * 6
         if HAS_PIL:
@@ -65,8 +75,8 @@ class App(tk.Frame):
                             Image.open(
                                 folder + name + ".png"
                             ).resize(
-                                (self.imageSize, self.imageSize)
-                                ), Image.ANTIALIAS
+                                (self.imageSize, self.imageSize),
+                                Image.ANTIALIAS),
                         ) for name in NAMES]
 
 
