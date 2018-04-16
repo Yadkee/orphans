@@ -1,0 +1,9 @@
+{
+    "calendar": {
+        "path": "calendar",
+        "iDay": "16/4/2018",
+        "fDay": "30/6/2018",
+        "margins": [50, 50],
+        "specialDates": ["21/6/2018"]
+    }
+}

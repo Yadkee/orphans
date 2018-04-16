@@ -1,9 +1,0 @@
-// This is the config file for calendar.py
-// Introduce the path name of the output files (png and pdf)
-//  extension will added later. Program expects just a name
-//  (e.g "-> path=Output" would generate Output.pdf and Output.png)
--> path=calendar
-// Introduce the starting date and the final one in separate lines
-// Use this format: dd/mm/yyyy
-1/1/1
-23/2/1
