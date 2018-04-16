@@ -25,6 +25,10 @@ Calendar:
 
 ![Calendar img](/examples/calendar.png "Calendar example")
 
+#### TODO:
+
+- [ ] Integrate timetable_config with config.json
+
 ##### Note
 
 This was designed with self-use intention. Feel free to adapt
