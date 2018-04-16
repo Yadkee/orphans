@@ -10,10 +10,11 @@ from json import load
 DAY = timedelta(1)
 
 
-def create_calendar(path, iDay, fDay, margins, specialDates):
+def create_calendar(path, iDay, fDay, margins, specialDates, holidays):
     days = [datetime(*[int(i) for i in day.split("/")][::-1])
-            for day in (iDay, fDay, *specialDates)]
-    specialSet = set(days[2:])
+            for day in (iDay, fDay, *specialDates, *holidays)]
+    specialSet = set(days[2:2 + len(specialDates)])
+    holidaySet = set(days[2 + len(specialDates):])
     # Adjust to mondays and sundays (first and last respectively)
     initialDay = days[0] - timedelta(days[0].weekday())
     finalDay = days[1] + timedelta(6 - days[1].weekday())
@@ -69,6 +70,10 @@ def create_calendar(path, iDay, fDay, margins, specialDates):
             else:
                 blit_text(image, dayFont, (x + lB, y + uB), text, gray[0],
                           color, size=(width - lB, height - uB), anchor="NW")
+            if currentDay in holidaySet:
+                pos = (x + lB + (width - lB) // 2,
+                       y + uB + 3 * (height - uB) // 4)
+                pg.draw.circle(image, gray[230], pos, height // 4, height // 9)
             currentDay += DAY
         y += height
         if week != weeks - 1:
@@ -80,8 +85,9 @@ def create_calendar(path, iDay, fDay, margins, specialDates):
     try:
         pdf = canvas.Canvas(pdfPath, pagesize=size)
         xm, ym = margins
-        pdf.drawImage(imgPath, xm, ym, size[0] - 2 * xm, size[1] - 2 * ym,
-                      preserveAspectRatio=True, anchor="n")
+        pdf.drawImage(imgPath, xm[0], ym[1],
+                      size[0] - sum(xm), size[1] - sum(ym),
+                      preserveAspectRatio=False, anchor="n")
         pdf.save()
         print("PDF was created")
     except AttributeError:
