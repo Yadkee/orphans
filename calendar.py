@@ -5,23 +5,18 @@ from reportlab.pdfgen import canvas
 from datetime import datetime
 from datetime import timedelta
 from math import ceil
+from json import load
 
-DEFAULT_CONFIG = """// This is the config file for calendar.py
-// Introduce the path name of the output files (png and pdf)
-//  extension will added later. Program expects just a name
-//  (e.g "-> path=Output" would generate Output.pdf and Output.png)
--> path=calendar
-// Introduce the starting date and the final one in separate lines
-// Use this format: dd/mm/yyyy
-1/1/1
-23/2/1"""
 DAY = timedelta(1)
 
 
-def create_calendar(path, iDay, fDay):
-    # Get iDay (force monday) and fDay (force sunday) and number of weeks
-    initialDay = iDay - timedelta(iDay.weekday())
-    finalDay = fDay + timedelta(6 - fDay.weekday())
+def create_calendar(path, iDay, fDay, margins, specialDates):
+    days = [datetime(*[int(i) for i in day.split("/")][::-1])
+            for day in (iDay, fDay, *specialDates)]
+    specialSet = set(days[2:])
+    # Adjust to mondays and sundays (first and last respectively)
+    initialDay = days[0] - timedelta(days[0].weekday())
+    finalDay = days[1] + timedelta(6 - days[1].weekday())
     weeks = ceil((finalDay - initialDay).days / 7)
     # Set variables
     imgPath = path + ".png"
@@ -35,38 +30,57 @@ def create_calendar(path, iDay, fDay):
     pg.font.init()
     wDayFont = pg.font.SysFont("Arial", 40)
     dayFont = pg.font.SysFont("Arial", 40)
+    sDayFont = pg.font.SysFont("Arial", 55)
     # Prepare surface and set some sizes
     image = pg.surface.Surface(size)
     image.fill(gray[255])
-    width = size[0] / 7
-    height = (size[1] - 50) / weeks
-    # Create Image
+    width = size[0] // 7
+    headerSize = 55
+    height = (size[1] - headerSize) // weeks
+    image.fill(gray[0], ((0, headerSize), (width * 7, height * weeks)))
+    # Blit header
+    for wDay in range(7):
+        x = wDay * width
+        color = gray[205 if wDay & 1 else 220]
+        blit_text(image, wDayFont, (x, 0), wDays[wDay], gray[0], color,
+                  size=(width, headerSize), anchor="N")
+    # Blit every week
+    bd = 1  # Border size
+    uB = 0  # Upper border
     currentDay = initialDay
-    y = 0
-    for week in range(-1, weeks + 1):
+    y = headerSize
+    for week in range(weeks):
         for wDay in range(7):
+            lB = 0  # Lateral border
             x = wDay * width
-            if week == -1:
-                color = gray[205 if wDay & 1 else 220]
-                blit_text(image, wDayFont, (x, y), wDays[wDay], gray[0], color,
-                          size=(width, 50), anchor="N")
+            color = gray[245 if wDay & 1 else 255]
+            dayNumber = currentDay.day
+            if dayNumber == 1:
+                lB = bd
+                uB = bd
+                text = "%d %s" % (dayNumber, currentDay.strftime("%b"))
             else:
-                color = gray[240 if wDay & 1 else 255]
-                blit_text(image, dayFont, (x, y), str(currentDay.day), gray[0],
-                          color, size=(width, height), anchor="NW")
-                currentDay += DAY
-        if week == -1:
-            y += 50
-        else:
-            y += height
-            image.fill(gray[0], rect=((0, y - 1), (size[0], 1)))
+                if dayNumber == 8:
+                    uB = 0
+                text = str(dayNumber)
+            if currentDay in specialSet:
+                blit_text(image, sDayFont, (x + lB, y + uB), text, gray[0],
+                          color, size=(width - lB, height - uB), anchor="NW")
+            else:
+                blit_text(image, dayFont, (x + lB, y + uB), text, gray[0],
+                          color, size=(width - lB, height - uB), anchor="NW")
+            currentDay += DAY
+        y += height
+        if week != weeks - 1:
+            image.fill(gray[200], rect=((0, y - 1), (size[0], 1)))
     pg.image.save(image, imgPath)
     print("PNG was created")
     pg.font.quit()
     # Create PDF
     try:
         pdf = canvas.Canvas(pdfPath, pagesize=size)
-        pdf.drawImage(imgPath, 0, 0, size[0], size[1],
+        xm, ym = margins
+        pdf.drawImage(imgPath, xm, ym, size[0] - 2 * xm, size[1] - 2 * ym,
                       preserveAspectRatio=True, anchor="n")
         pdf.save()
         print("PDF was created")
@@ -76,31 +90,13 @@ def create_calendar(path, iDay, fDay):
 
 def main():
     """Edit cPath to set the parameters"""
-    cPath = "calendar_config.txt"
+    cPath = "config.json"
     try:
         with open(cPath) as f:
-            config = f.read()
+            config = load(f)["calendar"]
     except FileNotFoundError:
-        with open(cPath, "w") as f:
-            f.write(DEFAULT_CONFIG)
-        raise Exception("Introduce the configuration in %s" % cPath)
-
-    days = []
-    path = "output"
-    for line in config.splitlines():
-        if line.startswith("//"):
-            continue
-        elif line.startswith("->"):
-            _, path = line.split("=")
-            continue
-        try:
-            day, month, year = tuple(int(i) for i in line.split("/"))
-        except ValueError:
-            raise Exception("Days are not in the correct format")
-        days.append(datetime(year, month, day))
-    if len(days) < 2:
-        raise Exception("There must be at least 2 dates in the config file")
-    create_calendar(path, days[0], days[1])
+        raise Exception("Missing %s" % cPath)
+    create_calendar(**config)
 
 if __name__ == "__main__":
     main()
