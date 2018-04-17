@@ -8,11 +8,20 @@ from math import ceil
 from json import load
 
 DAY = timedelta(1)
+YEAR = datetime.today().year
+
+
+def _datetime(s):
+    args = [int(i) for i in s.split("/")]
+    if args[2] < 1000:  # 1/1/18 to 1/1/2018
+        args[2] += 2000
+    if len(args) == 2:  # 1/1 to 1/1/{user year}
+        args.append(YEAR)
+    return datetime(*args[::-1])
 
 
 def create_calendar(path, iDay, fDay, margins, specialDates, holidays):
-    days = [datetime(*[int(i) for i in day.split("/")][::-1])
-            for day in (iDay, fDay, *specialDates, *holidays)]
+    days = [_datetime(day) for day in (iDay, fDay, *specialDates, *holidays)]
     specialSet = set(days[2:2 + len(specialDates)])
     holidaySet = set(days[2 + len(specialDates):])
     # Adjust to mondays and sundays (first and last respectively)
