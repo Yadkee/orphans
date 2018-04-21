@@ -4,10 +4,14 @@ from logging import (
     getLogger,
     DEBUG)
 from json import load
-from os.path import join
+from os.path import (
+    join,
+    exists)
+from os import mkdir
 try:
-    from PIL import Image
-    from PIL import ImageTk
+    from PIL import (
+        Image,
+        ImageTk)
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -19,13 +23,12 @@ logger = getLogger("game")
 logger.setLevel(DEBUG)
 
 PIECES = ("bishop", "king", "night", "pawn", "queen", "rook")
+#                           Knight would also start with K. That's why.
 NAMES = [i + j for i in ("b", "w") for j in PIECES]
 CHARS = ("♝", "♚", "♞", "♟", "♛", "♜", "♗", "♔", "♘", "♙", "♕", "♖")
 #         1     2     3     4     5    6     11    12    13   14    15    16
 CHARACTERS = dict(zip(NAMES, CHARS))
 PIECES = (1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16)
-valueGen = ([movements(piece, pos) for pos in range(64)] for piece in PIECES)
-MOVEMENTS = dict(zip(PIECES, valueGen))
 
 
 class App(tk.Frame):
@@ -75,13 +78,10 @@ class App(tk.Frame):
 
     def load_images(self):
         folder = join("media", "")
+        arg = ((self.imageSize, self.imageSize), Image.ANTIALIAS)
         self.images = [ImageTk.PhotoImage(
-                            Image.open(
-                                folder + name + ".png"
-                            ).resize(
-                                (self.imageSize, self.imageSize),
-                                Image.ANTIALIAS),
-                        ) for name in NAMES]
+            Image.open(folder + name + ".png").resize(*arg)
+        ) for name in NAMES]
 
 
 if __name__ == "__main__":
