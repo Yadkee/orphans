@@ -16,7 +16,9 @@ try:
 except ImportError:
     HAS_PIL = False
 import tkinter as tk
-from logic import movements
+from logic import (
+    movements,
+    separate)
 
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 logger = getLogger("game")
@@ -37,7 +39,8 @@ class App(tk.Frame):
         tk.Frame.__init__(self, master, width=imageSize8, height=imageSize8)
         self.grid_propagate(0)
         self.imageSize = imageSize
-        self.optionsColor = "lime"
+        self.blankColor = "lime"
+        self.enemyColor = "red"
         if HAS_PIL:
             self.load_images()
 
@@ -71,8 +74,10 @@ class App(tk.Frame):
             self.colorize(*self.options)
             if self.board[button]:
                 widget.config(bg=color, activebackground=color)
-                self.options = movements(self.board, button)
-                self.colorize(*self.options, aColor=self.optionsColor)
+                blank, enemy = separate(self.board, button)
+                self.options = blank | enemy
+                self.colorize(*blank, aColor=self.blankColor)
+                self.colorize(*enemy, aColor=self.enemyColor)
             self.selected = button
         widget = self.buttons[button]
         color = "blue" if (button + button // 8) & 1 else "cyan"

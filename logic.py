@@ -26,14 +26,29 @@ def night_moves(pos):
 NIGHT_CACHE = [night_moves(i) for i in range(64)]
 
 
-def movements(table, pos):
+def separate(board, pos):
+    blank = set()
+    enemy = set()
+    isWhite = board[pos] // 10
+    for i in movements(board, pos):
+        p = board[i]
+        if not p:
+            blank.add(i)
+        elif p // 10 != isWhite:
+            enemy.add(i)
+    return blank, enemy
+
+
+def movements(board, pos):
     # TODO: Consider pieces in between my path
     # TODO: Change 1, 3, 4, 5, 6
-    isWhite, piece = divmod(table[pos], 10)
+    isWhite, piece = divmod(board[pos], 10)
     if piece == 2:  # King
         return KING_CACHE[pos]
     elif piece == 3:  # Night
         return NIGHT_CACHE[pos]
+    else:
+        return []
 
     r, c = divmod(pos, 8)
     if piece == 1:  # Bishop
