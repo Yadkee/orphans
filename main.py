@@ -37,6 +37,7 @@ class App(tk.Frame):
         tk.Frame.__init__(self, master, width=imageSize8, height=imageSize8)
         self.grid_propagate(0)
         self.imageSize = imageSize
+        self.optionsColor = "lime"
         if HAS_PIL:
             self.load_images()
 
@@ -46,11 +47,11 @@ class App(tk.Frame):
         self.buttons = []
         for a in range(64):
             color = "plum" if (a + a // 8) & 1 else "white"
-            button = tk.Button(self, command=self.press(a),
-                               bg=color, activebackground=color,
+            button = tk.Button(self, bg=color, activebackground=color,
                                font=("Arial", -imageSize))
             button.grid(column=a % 8, row=a // 8, sticky="NSEW")
             self.buttons.append(button)
+            button.config(command=self.press(a))
         self.start()
 
     def start(self):
@@ -58,11 +59,32 @@ class App(tk.Frame):
                       [0] * 32 +
                       [14] * 8 + [16, 13, 11, 15, 12, 11, 13, 16])
         [self.change_button(a, piece) for a, piece in enumerate(self.board)]
+        self.options = set()
+        self.selected = None
 
     def press(self, button):
         def wrapper():
-            print(button)
+            if self.selected == button:
+                return
+            elif self.selected is not None:
+                self.colorize(self.selected)
+            self.colorize(*self.options)
+            if self.board[button]:
+                widget.config(bg=color, activebackground=color)
+                self.options = movements(self.board, button)
+                self.colorize(*self.options, aColor=self.optionsColor)
+            self.selected = button
+        widget = self.buttons[button]
+        color = "blue" if (button + button // 8) & 1 else "cyan"
         return wrapper
+
+    def colorize(self, *arg, aColor=None):
+        if aColor:
+            color = aColor
+        for button in arg:
+            if not aColor:
+                color = "plum" if (button + button // 8) & 1 else "white"
+            self.buttons[button].config(bg=color, activebackground=color)
 
     def change_button(self, button, value):
         if not value:
