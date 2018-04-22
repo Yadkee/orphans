@@ -67,33 +67,48 @@ class App(tk.Frame):
 
     def press(self, button):
         def wrapper():
-            if self.selected == button:
-                return
-            elif self.selected is not None:
+            if self.selected:
                 self.colorize(self.selected)
             self.colorize(*self.options)
+            if self.selected == button:
+                self.selected = None
+                self.options = []
+                return
+            elif self.selected is not None and button in self.options:
+                self.swap(self.selected, button)
+                self.selected = None
+                self.options = []
+                return
             if self.board[button]:
                 widget.config(bg=color, activebackground=color)
                 blank, enemy = separate(self.board, button)
                 self.options = blank | enemy
                 self.colorize(*blank, aColor=self.blankColor)
                 self.colorize(*enemy, aColor=self.enemyColor)
+            else:
+                self.options = []
             self.selected = button
         widget = self.buttons[button]
         color = "blue" if (button + button // 8) & 1 else "cyan"
         return wrapper
 
+    def swap(self, oldPos, newPos):
+        piece = self.board[self.selected]
+        self.board[newPos] = piece
+        self.board[oldPos] = 0
+        self.change_button(newPos, piece)
+        self.change_button(oldPos)
+
     def colorize(self, *arg, aColor=None):
-        if aColor:
-            color = aColor
+        color = aColor
         for button in arg:
             if not aColor:
                 color = "plum" if (button + button // 8) & 1 else "white"
             self.buttons[button].config(bg=color, activebackground=color)
 
-    def change_button(self, button, value):
+    def change_button(self, button, value=None):
         if not value:
-            self.buttons[button].config(text="", image=None)
+            self.buttons[button].config(text="", image="")
             return
         d, m = divmod(value, 10)
         toIndex = m - 1 + d * 6
