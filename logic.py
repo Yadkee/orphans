@@ -76,11 +76,23 @@ def develop(directions, board, pos):
 
 
 def movements(board, pos):
-    # TODO: Consider pieces in between my path
-    # TODO: Change 1, 3, 4, 5, 6
     isWhite, piece = divmod(board[pos], 10)
     if piece == 4:  # Pawn
-        return set()  # WIP
+        row = pos // 8
+        options = set()
+        step = (-8 if isWhite else 8)
+        l, n, r = (pos + step - 1, pos + step, pos + step + 1)
+        if board[l]:
+            options.add(l)
+        if board[r]:
+            options.add(r)
+        if not board[n]:
+            options.add(n)
+        if (isWhite and row == 6) or (not isWhite and row == 1):
+            nn = pos + step * 2
+            if not board[nn]:
+                options.add(nn)
+        return options
     elif piece == 3:  # Night
         return NIGHT_CACHE[pos]
     elif piece == 1:  # Bishop
@@ -91,12 +103,3 @@ def movements(board, pos):
         return KING_CACHE[pos]
     elif piece == 6:  # Rook
         return develop(VERTICAL_CACHE[pos], board, pos)
-
-    r, c = divmod(pos, 8)
-    if piece == 4:  # Pawn
-        out = set()
-        extra = (isWhite and r == 6) or (not isWhite and r == 1)
-        out.add(pos + (-8 if isWhite else 8))
-        if extra:
-            out.add(pos + (-16 if isWhite else 16))
-        return out
