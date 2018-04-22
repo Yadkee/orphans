@@ -26,6 +26,25 @@ def night_moves(pos):
 NIGHT_CACHE = [night_moves(i) for i in range(64)]
 
 
+def vertical_moves(pos):
+    r, c = divmod(pos, 8)
+    up = zip(range(-8, -64, -8), (r > i for i in range(0, 8)))
+    down = zip(range(8, 64, 8), (r < i for i in range(7, 0, -1)))
+    left = zip(range(-1, -8, -1), (c > i for i in range(0, 8)))
+    right = zip(range(1, 8, 1), (c < i for i in range(7, 0, -1)))
+    return [[i for i, cond in d if cond]
+            for d in (up, down, left, right)]
+VERTICAL_CACHE = [vertical_moves(i) for i in range(64)]
+
+
+def diagonal_moves(pos):
+    up, down, left, right = VERTICAL_CACHE[pos]
+    combinations = (zip(up, left), zip(up, right),
+                    zip(down, left), zip(down, right))
+    return [[v + h for v, h in d] for d in combinations]
+DIAGONAL_CACHE = [diagonal_moves(i) for i in range(64)]
+
+
 def separate(board, pos):
     blank = set()
     enemy = set()
@@ -39,35 +58,45 @@ def separate(board, pos):
     return blank, enemy
 
 
+def develop(directions, board, pos):
+    isWhite = board[pos] // 10
+    options = set()
+    for d in directions:
+        for i in d:
+            aPos = pos + i
+            aIsWhite, aPiece = divmod(board[aPos], 10)
+            if not aPiece:
+                options.add(aPos)
+            elif aIsWhite == isWhite:
+                break
+            else:
+                options.add(aPos)
+                break
+    return options
+
+
 def movements(board, pos):
     # TODO: Consider pieces in between my path
     # TODO: Change 1, 3, 4, 5, 6
     isWhite, piece = divmod(board[pos], 10)
-    if piece == 2:  # King
-        return KING_CACHE[pos]
+    if piece == 4:  # Pawn
+        return set()  # WIP
     elif piece == 3:  # Night
         return NIGHT_CACHE[pos]
-    else:
-        return []
+    elif piece == 1:  # Bishop
+        return develop(DIAGONAL_CACHE[pos], board, pos)
+    elif piece == 5:  # Queen
+        return develop(DIAGONAL_CACHE[pos] + VERTICAL_CACHE[pos], board, pos)
+    elif piece == 2:  # King
+        return KING_CACHE[pos]
+    elif piece == 6:  # Rook
+        return develop(VERTICAL_CACHE[pos], board, pos)
 
     r, c = divmod(pos, 8)
-    if piece == 1:  # Bishop
-        zip1 = list(zip(range(-56, 57, 8),
-                        chain((c >= i for i in (range(7, 0, -1))),
-                              (c < i for i in range(7, 1, -1)))))
-        zip2 = list(zip(range(-56, 57, 8),
-                        chain((r >= i for i in (range(7, 0, -1))),
-                              (r < i for i in range(7, 1, -1)))))
-        return set(pos + v + h for v, c1 in zip1 if c1
-                   for h, c2 in zip2 if c2 and v | h)
-    elif piece == 4:  # Pawn
+    if piece == 4:  # Pawn
         out = set()
         extra = (isWhite and r == 6) or (not isWhite and r == 1)
         out.add(pos + (-8 if isWhite else 8))
         if extra:
             out.add(pos + (-16 if isWhite else 16))
         return out
-    elif piece == 5:  # Queen
-        pass
-    elif piece == 6:  # Rook
-        pass
