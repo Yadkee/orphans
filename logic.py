@@ -88,10 +88,10 @@ def movements(board, pos):
             options.add(r)
         if not board[n]:
             options.add(n)
-        if (isWhite and row == 6) or (not isWhite and row == 1):
-            nn = pos + step * 2
-            if not board[nn]:
-                options.add(nn)
+            if (isWhite and row == 6) or (not isWhite and row == 1):
+                nn = pos + step * 2
+                if not board[nn]:
+                    options.add(nn)
         return options
     elif piece == 3:  # Night
         return NIGHT_CACHE[pos]
@@ -103,3 +103,40 @@ def movements(board, pos):
         return KING_CACHE[pos]
     elif piece == 6:  # Rook
         return develop(VERTICAL_CACHE[pos], board, pos)
+
+
+def is_under_attack(board, pos):
+    isWhite = board[pos] // 10
+    for directions, pieces in ((DIAGONAL_CACHE[pos], (1, 5)),
+                               (VERTICAL_CACHE[pos], (6, 5))):
+        for d in directions:
+            for i in d:
+                aPos = pos + i
+                aIsWhite, aPiece = divmod(board[aPos], 10)
+                if aPiece:
+                    if aIsWhite != isWhite and aPiece in pieces:
+                        return True
+                    break
+    for i in KING_CACHE[pos]:
+        aIsWhite, aPiece = divmod(board[i], 10)
+        if aIsWhite != isWhite:
+            if aPiece == 2:
+                return True
+            elif aPiece == 4:
+                step = (-8 if aIsWhite else 8)
+                l, r = (i + step - 1, i + step + 1)
+                if l == pos or r == pos:
+                    return True
+    for i in NIGHT_CACHE[pos]:
+        aIsWhite, aPiece = divmod(board[i], 10)
+        if aIsWhite != isWhite and aPiece == 3:
+            return True
+    return False
+
+
+def can_castle(board, isWhite):
+    i, p = [(0, 0), (56, 10)][isWhite]
+    if (board[i + 5] == board[i + 6] == 0 and
+       board[i + 4] == 2 + p and board[i + 7] == 6 + p and
+       not is_under_attack(board, i + 4)):
+        return True

@@ -18,7 +18,8 @@ except ImportError:
 import tkinter as tk
 from logic import (
     movements,
-    separate)
+    separate,
+    can_castle)
 
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 logger = getLogger("game")
@@ -41,6 +42,7 @@ class App(tk.Frame):
         self.imageSize = imageSize
         self.blankColor = "lime"
         self.enemyColor = "red"
+        self.castleColor = "yellow"
         if HAS_PIL:
             self.load_images()
 
@@ -64,27 +66,49 @@ class App(tk.Frame):
         [self.change_button(a, piece) for a, piece in enumerate(self.board)]
         self.options = set()
         self.selected = None
+        self.gonnaCastle = None
 
     def press(self, button):
+        def reset_variables():
+            self.selected = None
+            self.options = []
+            self.gonnaCastle = None
+
         def wrapper():
             if self.selected:
                 self.colorize(self.selected)
             self.colorize(*self.options)
             if self.selected == button:
-                self.selected = None
-                self.options = []
+                # Unselect
+                reset_variables()
                 return
             elif self.selected is not None and button in self.options:
+                # Move
                 self.swap(self.selected, button)
-                self.selected = None
-                self.options = []
+                reset_variables()
                 return
-            if self.board[button]:
+            elif button == self.gonnaCastle:
+                # Castle
+                i = (button // 56) * 56
+                self.swap(self.selected, button)
+                self.swap(i + 7, i + 5)
+                self.colorize(self.gonnaCastle)
+                reset_variables()
+                return
+            elif self.board[button]:
+                # Select
+                isWhite, piece = divmod(self.board[button], 10)
                 widget.config(bg=color, activebackground=color)
                 blank, enemy = separate(self.board, button)
                 self.options = blank | enemy
                 self.colorize(*blank, aColor=self.blankColor)
                 self.colorize(*enemy, aColor=self.enemyColor)
+                self.gonnaCastle = None
+                if piece == 2:
+                    i = [0, 56][isWhite]
+                    if can_castle(self.board, isWhite):
+                        self.colorize(i + 6, aColor=self.castleColor)
+                        self.gonnaCastle = i + 6
             else:
                 self.options = []
             self.selected = button
@@ -93,7 +117,7 @@ class App(tk.Frame):
         return wrapper
 
     def swap(self, oldPos, newPos):
-        piece = self.board[self.selected]
+        piece = self.board[oldPos]
         self.board[newPos] = piece
         self.board[oldPos] = 0
         self.change_button(newPos, piece)
