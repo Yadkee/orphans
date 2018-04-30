@@ -20,6 +20,7 @@ from logic import (
     movements,
     separate)
 from game import Game
+from client import Client
 
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 logger = getLogger("game")
@@ -45,6 +46,7 @@ class App(tk.Frame):
         if HAS_PIL:
             self.load_images()
         self.game = Game(self.paint_button)
+        self.client = Client(self.listen)
 
         for i in range(8):
             self.columnconfigure(i, weight=1, uniform="same")
@@ -63,6 +65,10 @@ class App(tk.Frame):
         self.paint_button(*enumerate(self.game.board))
         self.options = [None, set(), set(), set()]  # p, blank, enemy, castle
         [b.config(command=self.press(a)) for a, b in enumerate(self.buttons)]
+
+    def listen(self, data):
+        if data.startswith(b"Welcome"):
+            self.client.send(b"Ty")
 
     def press(self, button):
         def wrapper():
