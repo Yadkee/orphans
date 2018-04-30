@@ -19,7 +19,8 @@ import tkinter as tk
 from logic import (
     movements,
     separate,
-    can_castle)
+    can_rcastle)
+from game import Game
 
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 logger = getLogger("game")
@@ -33,6 +34,8 @@ CHARS = ("♝", "♚", "♞", "♟", "♛", "♜", "♗", "♔", "♘", "♙", "
 CHARACTERS = dict(zip(NAMES, CHARS))
 PIECES = (1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16)
 
+COLOR = {"blank": "lime", "enemy": "red", "castle": "yellow"}
+
 
 class App(tk.Frame):
     def __init__(self, master, imageSize):
@@ -40,11 +43,9 @@ class App(tk.Frame):
         tk.Frame.__init__(self, master, width=imageSize8, height=imageSize8)
         self.grid_propagate(0)
         self.imageSize = imageSize
-        self.blankColor = "lime"
-        self.enemyColor = "red"
-        self.castleColor = "yellow"
         if HAS_PIL:
             self.load_images()
+        self.game = Game(self.paint_button)
 
         for i in range(8):
             self.columnconfigure(i, weight=1, uniform="same")
@@ -56,72 +57,49 @@ class App(tk.Frame):
                                font=("Arial", -imageSize))
             button.grid(column=a % 8, row=a // 8, sticky="NSEW")
             self.buttons.append(button)
-            button.config(command=self.press(a))
         self.start()
 
     def start(self):
-        self.board = ([6, 3, 1, 5, 2, 1, 3, 6] + [4] * 8 +
-                      [0] * 32 +
-                      [14] * 8 + [16, 13, 11, 15, 12, 11, 13, 16])
-        [self.change_button(a, piece) for a, piece in enumerate(self.board)]
-        self.options = set()
-        self.selected = None
-        self.gonnaCastle = None
+        self.game.start()
+        self.paint_button(*enumerate(self.game.board))
+        self.options = [None, set(), set(), set()]  # p, blank, enemy, castle
+        [b.config(command=self.press(a)) for a, b in enumerate(self.buttons)]
 
     def press(self, button):
-        def reset_variables():
-            self.selected = None
-            self.options = []
-            self.gonnaCastle = None
-
         def wrapper():
-            if self.selected:
-                self.colorize(self.selected)
-            self.colorize(*self.options)
-            if self.selected == button:
-                # Unselect
-                reset_variables()
-                return
-            elif self.selected is not None and button in self.options:
-                # Move
-                self.swap(self.selected, button)
-                reset_variables()
-                return
-            elif button == self.gonnaCastle:
-                # Castle
-                i = (button // 56) * 56
-                self.swap(self.selected, button)
-                self.swap(i + 7, i + 5)
-                self.colorize(self.gonnaCastle)
-                reset_variables()
-                return
-            elif self.board[button]:
+            if options[0] is not None:
+                colorize(options[0], *options[1], *options[2], *options[3])
+                if button in options[1] or button in options[2]:
+                    # Move
+                    game.move(options[0], button)
+                elif button in options[3]:
+                    # RCastle
+                    game.rcastle(board[options[0]] // 10)
+                elif options[0] != button:
+                    # Try to select
+                    options[0] = None
+                    wrapper()
+                    return
+                options[0] = None
+            elif board[button]:
                 # Select
-                isWhite, piece = divmod(self.board[button], 10)
-                widget.config(bg=color, activebackground=color)
-                blank, enemy = separate(self.board, button)
-                self.options = blank | enemy
-                self.colorize(*blank, aColor=self.blankColor)
-                self.colorize(*enemy, aColor=self.enemyColor)
-                self.gonnaCastle = None
+                isWhite, piece = divmod(board[button], 10)
+                blank, enemy = separate(board, button)
+                options[0:4] = button, blank, enemy, set()
+                colorize(button, aColor=color)
+                colorize(*blank, aColor=COLOR["blank"])
+                colorize(*enemy, aColor=COLOR["enemy"])
                 if piece == 2:
-                    i = [0, 56][isWhite]
-                    if can_castle(self.board, isWhite):
-                        self.colorize(i + 6, aColor=self.castleColor)
-                        self.gonnaCastle = i + 6
-            else:
-                self.options = []
-            self.selected = button
-        widget = self.buttons[button]
+                    # TODO: Add lCastle
+                    if game.canRCastle and can_rcastle(board, isWhite):
+                        colorize(isWhite * 56 + 6, aColor=COLOR["castle"])
+                        options[3].add(isWhite * 56 + 6)
         color = "blue" if (button + button // 8) & 1 else "cyan"
+        game = self.game
+        board = self.game.board
+        colorize = self.colorize
+        options = self.options
         return wrapper
-
-    def swap(self, oldPos, newPos):
-        piece = self.board[oldPos]
-        self.board[newPos] = piece
-        self.board[oldPos] = 0
-        self.change_button(newPos, piece)
-        self.change_button(oldPos)
 
     def colorize(self, *arg, aColor=None):
         color = aColor
@@ -130,17 +108,18 @@ class App(tk.Frame):
                 color = "plum" if (button + button // 8) & 1 else "white"
             self.buttons[button].config(bg=color, activebackground=color)
 
-    def change_button(self, button, value=None):
-        if not value:
-            self.buttons[button].config(text="", image="")
-            return
-        d, m = divmod(value, 10)
-        toIndex = m - 1 + d * 6
-        if HAS_PIL:
-            kw = {"image": self.images[toIndex]}
-        else:
-            kw = {"text": CHARS[toIndex]}
-        self.buttons[button].config(**kw)
+    def paint_button(self, *arg):
+        for button, value in arg:
+            if not value:
+                self.buttons[button].config(text="", image="")
+            else:
+                d, m = divmod(value, 10)
+                toIndex = m - 1 + d * 6
+                if HAS_PIL:
+                    kw = {"image": self.images[toIndex]}
+                else:
+                    kw = {"text": CHARS[toIndex]}
+                self.buttons[button].config(**kw)
 
     def load_images(self):
         folder = join("media", "")
@@ -150,7 +129,7 @@ class App(tk.Frame):
         ) for name in NAMES]
 
 
-if __name__ == "__main__":
+def run():
     with open("config.json") as f:
         loaded = load(f)
         imageSize = int(loaded["imageSize"])
@@ -166,3 +145,7 @@ if __name__ == "__main__":
     app = App(root, imageSize)
     app.grid(column=0, row=0)
     root.mainloop()
+
+
+if __name__ == "__main__":
+    run()
