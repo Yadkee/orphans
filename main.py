@@ -18,8 +18,7 @@ except ImportError:
 import tkinter as tk
 from logic import (
     movements,
-    separate,
-    can_rcastle)
+    separate)
 from game import Game
 
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
@@ -73,8 +72,8 @@ class App(tk.Frame):
                     # Move
                     game.move(options[0], button)
                 elif button in options[3]:
-                    # RCastle
-                    game.rcastle(board[options[0]] // 10)
+                    # Castle
+                    game.castle(options[0] > 32, button % 8 > 4)
                 elif options[0] != button:
                     # Try to select
                     options[0] = None
@@ -90,10 +89,11 @@ class App(tk.Frame):
                 colorize(*blank, aColor=COLOR["blank"])
                 colorize(*enemy, aColor=COLOR["enemy"])
                 if piece == 2:
-                    # TODO: Add lCastle
-                    if game.canRCastle and can_rcastle(board, isWhite):
-                        colorize(isWhite * 56 + 6, aColor=COLOR["castle"])
-                        options[3].add(isWhite * 56 + 6)
+                    for isRight in (False, True):
+                        if game.can_castle(isWhite, isRight):
+                            pos = isWhite * 56 + 2 + isRight * 4
+                            colorize(pos, aColor=COLOR["castle"])
+                            options[3].add(pos)
         color = "blue" if (button + button // 8) & 1 else "cyan"
         game = self.game
         board = self.game.board

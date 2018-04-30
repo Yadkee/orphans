@@ -1,9 +1,7 @@
 #! python3
-
-if __name__ == "__main__":
-    from main import run
-    run()
-    raise SystemExit
+from logic import (
+    can_lcastle,
+    can_rcastle)
 
 
 class Game():
@@ -23,10 +21,27 @@ class Game():
         self.board[iPos] = 0
         self.moveCallback((fPos, p), (iPos, 0))
 
-    def rcastle(self, isWhite):
+    def can_castle(self, isWhite, isRight):
+        if isRight and can_rcastle(self.board, isWhite):
+            return self.canRCastle[isWhite]
+        elif not isRight and can_lcastle(self.board, isWhite):
+            return self.canLCastle[isWhite]
+        return False
+
+    def castle(self, isWhite, isRight):
         i, p = [(0, 0), (56, 10)][isWhite]
-        self.board[i + 4:i + 7] = [0, p + 6, p + 2, 0]
-        self.moveCallback((i + 6, p + 2), (i + 5, p + 6),
-                          (i + 4, 0), (i + 7, 0))
+        if isRight:
+            self.board[i + 4:i + 8] = [0, p + 6, p + 2, 0]
+            self.moveCallback((i + 6, p + 2), (i + 5, p + 6),
+                              (i + 4, 0), (i + 7, 0))
+        else:
+            self.board[i:i + 5] = [0, 0, p + 2, p + 6, 0]
+            self.moveCallback((i, 0), (i + 1, 0), (i + 2, p + 2),
+                              (i + 3, p + 6), (i + 4, 0))
         self.canLCastle[isWhite] = False
         self.canRCastle[isWhite] = False
+
+if __name__ == "__main__":
+    from main import run
+    run()
+    raise SystemExit

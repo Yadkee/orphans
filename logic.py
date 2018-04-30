@@ -1,11 +1,6 @@
 #! python3
 from itertools import chain
 
-if __name__ == "__main__":
-    from main import run
-    run()
-    raise SystemExit
-
 
 def king_moves(pos):
     r, c = divmod(pos, 8)
@@ -137,13 +132,22 @@ def is_under_attack(board, pos):
     return False
 
 
+def can_lcastle(board, isWhite):
+    i, p = [(0, 0), (56, 10)][isWhite]
+    return board[i:i + 5] == [p + 6, 0, 0, 0, p + 2]
+
+
 def can_rcastle(board, isWhite):
     i, p = [(0, 0), (56, 10)][isWhite]
-    return (board[i + 4:i + 8] == [p + 2, 0, 0, p + 6] and
-            not is_under_attack(board, i + 4))
+    return board[i + 4:i + 8] == [p + 2, 0, 0, p + 6]
 
 
 def is_checked(board, isWhite):
     p = [0, 10][isWhite]
     pos = board.index(p)
     return is_under_attack(board, pos)
+
+if __name__ == "__main__":
+    from main import run
+    run()
+    raise SystemExit
