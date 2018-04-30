@@ -1,7 +1,10 @@
 #! python3
 from itertools import chain
-# "♝", "♚", "♞", "♟", "♛", "♜")
-#  1     2     3     4     5    6
+
+if __name__ == "__main__":
+    from main import run
+    run()
+    raise SystemExit
 
 
 def king_moves(pos):
@@ -134,9 +137,13 @@ def is_under_attack(board, pos):
     return False
 
 
-def can_castle(board, isWhite):
+def can_rcastle(board, isWhite):
     i, p = [(0, 0), (56, 10)][isWhite]
-    if (board[i + 5] == board[i + 6] == 0 and
-       board[i + 4] == 2 + p and board[i + 7] == 6 + p and
-       not is_under_attack(board, i + 4)):
-        return True
+    return (board[i + 4:i + 8] == [p + 2, 0, 0, p + 6] and
+            not is_under_attack(board, i + 4))
+
+
+def is_checked(board, isWhite):
+    p = [0, 10][isWhite]
+    pos = board.index(p)
+    return is_under_attack(board, pos)
