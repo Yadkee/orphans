@@ -20,6 +20,7 @@ class Server():
         self.lastPing = time()
         self.haveNotPong = set()
         self.secure = Secure()
+        self.matches = []
         Thread(target=self.accept, daemon=True).start()
         Thread(target=self.listen, daemon=True).start()
 
@@ -34,9 +35,18 @@ class Server():
     def handle(self, data, client, adress):
         if data.startswith(b">>>"):
             print("Received client key from", adress)
-            self.clientKeys[adress] = self.secure.fromDer(data[3:])
-            self.clientCiphers[adress] = PKCS1_OAEP.new(self.clientKeys[adress])
-            self.send(b"Welcome", client, adress)
+            self.clientKeys[client] = self.secure.fromDer(data[3:])
+            self.clientCiphers[client] = PKCS1_OAEP.new(self.clientKeys[client])
+            self.send(b"Welcome", client)
+            if len(self.clientCiphers) == 2:
+                pair = []
+                color = b"WHITE"
+                for c, a in self.clients:
+                    if c in self.clientCiphers:
+                        self.send(b"MATCH" + color, c)
+                        pair.append(c)
+                        color = b"BLACK"
+                self.matches.append(pair)
             print("Welcomed", adress)
         else:
             deciphered = self.secure.privateCipher.decrypt(data)
@@ -47,11 +57,19 @@ class Server():
             if deciphered == b"PONG":
                 self.haveNotPong.remove((client, adress))
                 print(adress, "answered a ping with a pong")
+            elif (deciphered.startswith(b"MOVE") or
+                  deciphered.startswith("CASTLE")):
+                for i in self.matches:
+                    if client in i:
+                        c1, c2 = i
+                        adversary = c2 if c1 == client else c1
+                        self.send(deciphered, adversary)
+                        break
             else:
                 print(deciphered, adress)
 
-    def send(self, data, client, adress):
-        ciphered = self.clientCiphers[adress].encrypt(b">>" + data)
+    def send(self, data, client):
+        ciphered = self.clientCiphers[client].encrypt(b">>" + data)
         client.send(ciphered)
 
     def listen(self):
@@ -66,9 +84,11 @@ class Server():
                     else:
                         self.handle(data, client, adress)
                     if ping:
-                        self.send(b"PING", client, adress)
+                        self.send(b"PING", client)
                 except (ConnectionResetError, ConnectionAbortedError):
                     self.clients.remove((client, adress))
+                    del self.clientKeys[client]
+                    del self.clientCiphers[client]
                     print(adress, "left")
             if ping:
                 print("Pinged every client (%d)" % len(self.clients))
