@@ -114,6 +114,8 @@ class Board(tk.Frame):
                             pos = isWhite * 56 + 2 + isRight * 4
                             colorize(pos, aColor=COLOR["castle"])
                             options[3].add(pos)
+        if not self.imWhite:
+            button = 63 - button
         color = "blue" if (button + button // 8) & 1 else "cyan"
         game = self.game
         board = self.game.board
@@ -125,18 +127,20 @@ class Board(tk.Frame):
     def colorize(self, *arg, aColor=None):
         color = aColor
         for button in arg:
+            if not self.imWhite:
+                button = 63 - button
             if not aColor:
                 color = "plum" if (button + button // 8) & 1 else "white"
             self.buttons[button].config(bg=color, activebackground=color)
 
     def paint_button(self, *arg):
         for button, value in arg:
+            if not self.imWhite:
+                button = 63 - button
             if not value:
                 self.buttons[button].config(text="", image="")
             else:
                 d, m = divmod(value, 10)
-                if not self.imWhite:
-                    d = not d
                 toIndex = m - 1 + d * 6
                 if HAS_PIL:
                     kw = {"image": self.images[toIndex]}
