@@ -28,26 +28,30 @@ class Server():
             socket, adress = self.s.accept()
             socket.settimeout(0)
             socket.send(b">>>" + self.secure.publicKey.exportKey("DER"))
-            print("Sent public key to", adress)
+            print("Sent server key to", adress)
             self.clients.append((socket, adress))
 
     def handle(self, data, client, adress):
         if data.startswith(b">>>"):
-            print("Received public key from", adress)
+            print("Received client key from", adress)
             self.clientKeys[adress] = self.secure.fromDer(data[3:])
             self.clientCiphers[adress] = PKCS1_OAEP.new(self.clientKeys[adress])
             self.send(b"Welcome", client, adress)
             print("Welcomed", adress)
         else:
             deciphered = self.secure.privateCipher.decrypt(data)
+            if not deciphered.startswith(b">>"):
+                print("Invalid packet from", adress)
+                return
+            deciphered = deciphered[2:]
             if deciphered == b"PONG":
                 self.haveNotPong.remove((client, adress))
-                print(adress, "did a pong")
+                print(adress, "answered a ping with a pong")
             else:
                 print(deciphered, adress)
 
     def send(self, data, client, adress):
-        ciphered = self.clientCiphers[adress].encrypt(data)
+        ciphered = self.clientCiphers[adress].encrypt(b">>" + data)
         client.send(ciphered)
 
     def listen(self):
@@ -67,6 +71,7 @@ class Server():
                     self.clients.remove((client, adress))
                     print(adress, "left")
             if ping:
+                print("Pinged every client (%d)" % len(self.clients))
                 self.lastPing = time()
                 # TODO: Remove people who haven't pong yet before updating.
                 self.haveNotPong.update(self.clients)
