@@ -26,6 +26,9 @@ class Client():
             size = int.from_bytes(s.recv(metasize), "big")
             data = decrypt(s.recv(size), password)
             return data
+
+        def send(data):
+            s.sendall(len(data).to_bytes(1, "big") + data)
         serverCipher = self.server[3]
         password = generate_password(PASS_SIZE)
         firstMsg = serverCipher.encrypt(password + self.name)
@@ -44,7 +47,11 @@ class Client():
         logger.info(read(3))
         # Start loop
         while True:
-            logger.info(read(1))
+            data = read(1)
+            if data == b"PING":
+                send(encrypt(b"PONG", password))
+            else:
+                logger.info(data)
 
 
 if __name__ == "__main__":
