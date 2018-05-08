@@ -1,6 +1,6 @@
 #! python3
 from socket import socket as newSocket
-from secure import (rsa, generate_password, encrypt, decrypt, PASS_SIZE)
+from secure import (rsa, encrypt, decrypt, PASS_SIZE)
 from threading import Thread
 from time import (time, sleep)
 
@@ -15,8 +15,17 @@ PING_RATE = 30
 AFK_RATE = 600
 
 
-def send(socket, data):
-    socket.sendall(len(data).to_bytes(1, "big") + data)
+def send(socket, data, size=1):
+    socket.sendall(len(data).to_bytes(size, "big") + data)
+
+
+def esend(socket, raw, password, size=1):
+    data = encrypt(raw, password)
+    socket.sendall(len(data).to_bytes(size, "big") + data)
+
+
+def userToStr(user):
+    return user[2:].decode() + "#" + user[:2].hex()
 
 
 class Server():
@@ -31,100 +40,136 @@ class Server():
         logger.info("Created serverAddress")
 
     def join_lobby(self, address):
-        def user(a):
-            return ids[a] + names[a].encode()
-        sockets, passwords, names, ids, lobby, times = self.locals
+        # Locals
+        lobby = self.lobby
+        users = self.users
 
-        users = b";".join(map(user, lobby))
-        message = encrypt(users, passwords[address])
-        sockets[address].sendall(len(message).to_bytes(3, "big") + message)
-        logger.debug("[Lobby] +%s" % str(user(address)))
-        self.notify_lobby(b"+" + user(address))
-        lobby.append(address)
-        times[address] = time()
+        user = users.pop(address)
+        userList = b";".join(users.values())
+        users[address] = user
+
+        esend(self.sockets[address], userList, self.passwords[address], size=3)
+        self.notify_lobby(b"+" + user)
+
+        self.timeStamps[address] = time()
+        lobby.add(address)
+        logger.debug("L+%s (%d)" % (userToStr(user), len(lobby)))
 
     def notify_lobby(self, data):
-        sockets, lobby, passwords = self.sockets, self.lobby, self.passwords
-        for address in lobby:
-            send(sockets[address], encrypt(data, passwords[address]))
+        # Locals
+        sockets = self.sockets
+        passwords = self.passwords
 
-    def left(self, address):
-        sockets, passwords, names, ids, lobby, times = self.locals
-        logger.info("-%s [%d]" % (address, len(lobby)))
-        self.notify_lobby(b"-" + ids[address] + names[address].encode())
+        for address in self.lobby.copy():
+            esend(sockets[address], data, passwords[address])
+
+    def leave_lobby(self, address):
+        self.lobby.remove(address)
+        user = self.users[address]
+        self.notify_lobby(b"-" + user)
+        logger.debug("L-%s (%d)" % (userToStr(user), len(self.lobby)))
+
+    def leave(self, address):
+        lobby = self.lobby
+        if address in lobby:
+            self.leave_lobby(address)
+            # TODO: Remove queues from this user
+        else:
+            pass  # TODO: Leave game
         try:
-            sockets[address].close()
+            self.sockets[address].close()
         except (ConnectionResetError, ConnectionAbortedError):
             pass
-        del (sockets[address], passwords[address],
-             names[address], ids[address], times[address])
+        user = self.users[address]
+        # Clean variables
+        del(self.sockets[address], self.passwords[address],
+            self.users[address], self.timeStamps[address])
+        self.pinged.discard(address)
+
+        logger.info("-%s [%d]" % (user, len(lobby) + len(self.game)))
 
     def run(self):
         def handle(socket, address):
             message = socket.recv(256)
-            decrypted = sdecrypt(message)
+            decrypted = self.privateCipher.decrypt(message)
             password, rawName = decrypted[:PASS_SIZE], decrypted[PASS_SIZE:]
             name = "".join(chr(i) for i in rawName)[:NICKNAME_MAX_SIZE]
+            esend(socket, b"RECEIVED", password)
             logger.debug("Received %s's (%s) password" % (name, address))
-            send(socket, encrypt(b"RECEIVED", password))
 
             socket.setblocking(False)
-            sockets[address] = socket
-            passwords[address] = password
-            names[address] = name
-            myId = generate_password(2)
-            while myId in ids.values():
-                myId = generate_password(2)
-            ids[address] = myId
-            join_lobby(address)
+            self.sockets[address] = socket
+            self.passwords[address] = password
+            self.users[address] = self.freeIds.pop() + name.encode()
+            userStr = userToStr(self.users[address])
+            logger.info("+%s [%d]" %
+                        (userStr, len(lobby) + len(self.game) + 1))
+            self.join_lobby(address)
         s = newSocket()
         s.bind(self.address)
         s.listen(5)
 
         self.pinged = set()
-        self.locals = ({}, {}, {}, {}, [], {})
-        sockets, passwords, names, ids, lobby, _ = self.locals
-        (self.sockets, self.passwords, self.names,
-         self.ids, self.lobby, self.times) = self.locals
-        sdecrypt = self.privateCipher.decrypt
-        join_lobby = self.join_lobby
+        self.lobby = set()
+        self.queue = set()
+        self.queueFlags = dict()
+        self.game = set()
+        self.gameFlags = dict()
+        self.gameOponent = dict()
+        self.freeIds = set(i.to_bytes(2, "big") for i in range(1 << 16))
+        # AddressInfo
+        self.sockets = dict()
+        self.passwords = dict()
+        self.users = dict()
+        self.timeStamps = dict()
+        # Loops
         Thread(target=self.lobby_loop, daemon=True).start()
         Thread(target=self.ping_loop, daemon=True).start()
+        logger.info("Started all the loops")
 
+        lobby = self.lobby
         while True:
             socket, raw = s.accept()
             address = raw[0] + ":" + str(raw[1])
             if len(lobby) >= MAX_USERS:
                 socket.close()
-                logger.info("?%s size limit exceeded" % address)
+                logger.info("*%s size limit exceeded" % address)
                 continue
-            logger.info("+%s [%d]" % (address, len(lobby) + 1))
-            Thread(target=handle, args=(socket, address), daemon=True).start()
+            handle(socket, address)
 
     def ping_loop(self):
-        lobby, pinged, times = self.lobby, self.pinged, self.times
+        # Locals
+        lobby = self.lobby
+        timeStamps = self.timeStamps
+        pinged = self.pinged
+        leave = self.leave
         notify_lobby = self.notify_lobby
+
         while True:
             t0 = time()
-            for address in pinged:
-                if address in self.sockets:
-                    lobby.remove(address)
-                    self.left(address)
-            pinged.clear()
+            logger.debug(".Starting to clean pingers (%d)" % len(pinged))
+            for address in pinged.copy():
+                leave(address)
             notify_lobby(b"PING")
-            logger.debug("PINGED")
-            for address, timestamp in times.items():
-                if timestamp + AFK_RATE < t0:
-                    lobby.remove(address)
-                    self.left(address)
             pinged.update(lobby)
-            sleep(PING_RATE - time() + t0)
+            logger.debug("PINGED")
+            for address, timestamp in list(timeStamps.items()):
+                if timestamp + AFK_RATE < t0:
+                    leave(address)
+            logger.debug(".Kicked afks")
+            sleep(max(PING_RATE - time() + t0, 0))
 
     def lobby_loop(self):
-        sockets, passwords, lobby, pinged = (self.sockets, self.passwords,
-                                             self.lobby, self.pinged)
+        # Locals
+        lobby = self.lobby
+        sockets = self.sockets
+        passwords = self.passwords
+        users = self.users
+        pinged = self.pinged
+        leave = self.leave
+
         while True:
-            for address in lobby:
+            for address in lobby.copy():
                 try:
                     size = int.from_bytes(sockets[address].recv(1), "big")
                     if not size:
@@ -132,16 +177,17 @@ class Server():
                 except BlockingIOError:
                     continue
                 except (ConnectionResetError, ConnectionAbortedError):
-                    lobby.remove(address)
-                    Thread(target=self.left,
-                           args=(address,), daemon=True).start()
+                    leave(address)
                 else:
                     data = decrypt(sockets[address].recv(size),
                                    passwords[address])
+                    userStr = userToStr(users[address])
                     if data == b"PONG":
                         pinged.discard(address)
+                        logger.debug("%s answered the ping (%d left)" %
+                                     (userStr, len(pinged)))
                     else:
-                        logger.info("%s: %s" % (address, str(data)))
+                        logger.warn("%s -> %s" % (userStr, str(data)))
 
 
 if __name__ == "__main__":
