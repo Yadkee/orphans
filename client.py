@@ -2,6 +2,7 @@
 from socket import socket as newSocket
 from secure import (fromDer, generate_password,
                     encrypt, decrypt, PASS_SIZE)
+from threading import Thread
 
 from logging import (basicConfig, getLogger, DEBUG)
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -21,6 +22,10 @@ class Client():
         self.server = (name, ip, port, serverCipher)
         logger.info("Read serverAdress")
 
+    def send(self, raw):
+        data = encrypt(raw, self.password)
+        self.s.sendall(len(data).to_bytes(1, "big") + data)
+
     def run(self):
         def read(metasize):
             size = int.from_bytes(s.recv(metasize), "big")
@@ -31,9 +36,11 @@ class Client():
             s.sendall(len(data).to_bytes(1, "big") + data)
         serverCipher = self.server[3]
         password = generate_password(PASS_SIZE)
+        self.password = password
         firstMsg = serverCipher.encrypt(password + self.name)
         logger.info("Connecting to the server")
         s = newSocket()
+        self.s = s
         try:
             s.connect(self.server[1:3])
         except ConnectionRefusedError:
@@ -50,10 +57,14 @@ class Client():
             data = read(1)
             if data == b"PING":
                 send(encrypt(b"PONG", password))
+                logger.debug("Answered the ping")
             else:
                 logger.info(data)
 
 
 if __name__ == "__main__":
     client = Client("Peter")
-    client.run()
+    Thread(target=client.run, daemon=True).start()
+    while True:
+        inp = input()
+        client.send(inp.encode())
