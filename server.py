@@ -43,16 +43,19 @@ class Server():
         # Locals
         lobby = self.lobby
         users = self.users
+        queue = self.queue
+        queueFlags = self.queueFlags
 
         user = users.pop(address)
         userList = b";".join(users.values())
         users[address] = user
+        queueList = b";".join(users[i][:2] + queueFlags[i] for i in queue)
 
-        esend(self.sockets[address], userList, self.passwords[address], size=3)
+        esend(self.sockets[address], userList, self.passwords[address], 3)
+        esend(self.sockets[address], queueList, self.passwords[address], 3)
         self.notify_lobby(b"+" + user)
-
-        self.timeStamps[address] = time()
         lobby.add(address)
+        self.timeStamps[address] = time()
         logger.debug("L+%s (%d)" % (userToStr(user), len(lobby)))
 
     def notify_lobby(self, data):
@@ -66,14 +69,15 @@ class Server():
     def leave_lobby(self, address):
         self.lobby.remove(address)
         user = self.users[address]
-        self.notify_lobby(b"-" + user)
+        self.notify_lobby(b"-" + user[:2])
+        self.queue.discard(address)
+        self.queueFlags.pop(address, None)
         logger.debug("L-%s (%d)" % (userToStr(user), len(self.lobby)))
 
     def leave(self, address):
         lobby = self.lobby
         if address in lobby:
             self.leave_lobby(address)
-            # TODO: Remove queues from this user
         else:
             pass  # TODO: Leave game
         try:
@@ -150,9 +154,9 @@ class Server():
             logger.debug(".Starting to clean pingers (%d)" % len(pinged))
             for address in pinged.copy():
                 leave(address)
-            notify_lobby(b"PING")
             pinged.update(lobby)
-            logger.debug("PINGED")
+            notify_lobby(b".")
+            logger.debug(".PINGED")
             for address, timestamp in list(timeStamps.items()):
                 if timestamp + AFK_RATE < t0:
                     leave(address)
@@ -166,13 +170,18 @@ class Server():
         passwords = self.passwords
         users = self.users
         pinged = self.pinged
+        queue = self.queue
+        queueFlags = self.queueFlags
         leave = self.leave
+        leave_lobby = self.leave_lobby
+        notify_lobby = self.notify_lobby
 
         while True:
             for address in lobby.copy():
                 try:
                     size = int.from_bytes(sockets[address].recv(1), "big")
                     if not size:
+                        logger.debug("%s chose to leave" % address)
                         raise ConnectionAbortedError
                 except BlockingIOError:
                     continue
@@ -182,10 +191,37 @@ class Server():
                     data = decrypt(sockets[address].recv(size),
                                    passwords[address])
                     userStr = userToStr(users[address])
-                    if data == b"PONG":
+                    if data == b",":
                         pinged.discard(address)
-                        logger.debug("%s answered the ping (%d left)" %
+                        logger.debug(".%s answered the ping (%d left)" %
                                      (userStr, len(pinged)))
+                    elif data.startswith(b"?"):
+                        if not data[1:]:
+                            queue.discard(address)
+                            queueFlags.pop(address, None)
+                            notify_lobby(b"?%s" % users[address][:2])
+                            continue
+                        queue.add(address)
+                        queueFlags[address] = data[1:]
+                        message = b"?%s" % users[address][:2] + data[1:]
+                        notify_lobby(message)
+                        logger.debug("%s asked for a match: %s" %
+                                     (userStr, str(data[1:])))
+                    elif data.startswith(b"!"):
+                        try:
+                            opponent = next(i for i, j in list(users.items())
+                                            if j.startswith(data[1:]))
+                        except StopIteration:
+                            pass  # Opponent doesnt exist
+                        if opponent not in queue:
+                            continue
+                        flags = queueFlags[opponent]
+                        # TODO: Create a game
+                        # leave_lobby(address)
+                        # leave_lobby(opponent)
+                        logger.debug("%s is playing against %s (%s)" %
+                                     (userStr, userToStr(users[opponent]),
+                                      flags))
                     else:
                         logger.warn("%s -> %s" % (userStr, str(data)))
 
