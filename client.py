@@ -50,13 +50,14 @@ class Client():
         s.sendall(firstMsg)
         # Receive confirmation
         logger.info(read(1))  # Should be b"RECEIVED"
-        # Receive lobby info
+        # Receive lobby info and queue
+        logger.info(read(3))
         logger.info(read(3))
         # Start loop
         while True:
             data = read(1)
-            if data == b"PING":
-                send(encrypt(b"PONG", password))
+            if data == b".":
+                send(encrypt(b",", password))
                 logger.debug("Answered the ping")
             else:
                 logger.info(data)
@@ -67,4 +68,18 @@ if __name__ == "__main__":
     Thread(target=client.run, daemon=True).start()
     while True:
         inp = input()
-        client.send(inp.encode())
+        enc = []
+        replace = 0
+        for i in inp:
+            if i == "#":
+                replace = 4
+                number = None
+            elif replace:
+                if replace & 1:
+                    enc.append(int(number + i, 16))
+                else:
+                    number = i
+                replace -= 1
+            else:
+                enc.append(ord(i))
+        client.send(bytes(enc))
