@@ -154,13 +154,13 @@ class Server():
             logger.debug(".Starting to clean pingers (%d)" % len(pinged))
             for address in pinged.copy():
                 leave(address)
-            pinged.update(lobby)
-            notify_lobby(b".")
-            logger.debug(".PINGED")
+            logger.debug(".Kicking afks (if any)")
             for address, timestamp in list(timeStamps.items()):
                 if timestamp + AFK_RATE < t0:
                     leave(address)
-            logger.debug(".Kicked afks")
+            pinged.update(lobby)
+            notify_lobby(b".")
+            logger.debug(".PINGED")
             sleep(max(PING_RATE - time() + t0, 0))
 
     def lobby_loop(self):
