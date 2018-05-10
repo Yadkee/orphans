@@ -3,6 +3,7 @@ from socket import socket as newSocket
 from secure import (rsa, encrypt, decrypt, PASS_SIZE)
 from threading import Thread
 from time import (time, sleep)
+from collections import deque
 
 from logging import (basicConfig, getLogger, DEBUG)
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -20,8 +21,11 @@ def send(socket, data, size=1):
 
 
 def esend(socket, raw, password, size=1):
-    data = encrypt(raw, password)
-    socket.sendall(len(data).to_bytes(size, "big") + data)
+    try:
+        data = encrypt(raw, password)
+        socket.sendall(len(data).to_bytes(size, "big") + data)
+    except (ConnectionResetError, ConnectionAbortedError):
+        pass
 
 
 def userToStr(user):
@@ -94,7 +98,10 @@ class Server():
 
     def run(self):
         def handle(socket, address):
-            message = socket.recv(256)
+            try:
+                message = socket.recv(256)
+            except (ConnectionResetError, ConnectionAbortedError):
+                return
             decrypted = self.privateCipher.decrypt(message)
             password, rawName = decrypted[:PASS_SIZE], decrypted[PASS_SIZE:]
             name = "".join(chr(i) for i in rawName)[:NICKNAME_MAX_SIZE]
@@ -113,6 +120,7 @@ class Server():
         s.bind(self.address)
         s.listen(5)
 
+        self.actions = deque()
         self.pinged = set()
         self.lobby = set()
         self.queue = set()
@@ -127,10 +135,12 @@ class Server():
         self.users = dict()
         self.timeStamps = dict()
         # Loops
+        Thread(target=self.actions_loop, daemon=True).start()
         Thread(target=self.lobby_loop, daemon=True).start()
         Thread(target=self.ping_loop, daemon=True).start()
         logger.info("Started all the loops")
 
+        actions = self.actions
         lobby = self.lobby
         while True:
             socket, raw = s.accept()
@@ -138,33 +148,25 @@ class Server():
             if len(lobby) >= MAX_USERS:
                 socket.close()
                 logger.info("*%s size limit exceeded" % address)
-                continue
-            handle(socket, address)
+            else:
+                actions.append((handle, socket, address))
 
-    def ping_loop(self):
+    def actions_loop(self):
         # Locals
-        lobby = self.lobby
-        timeStamps = self.timeStamps
-        pinged = self.pinged
-        leave = self.leave
-        notify_lobby = self.notify_lobby
+        actions = self.actions
 
         while True:
             t0 = time()
-            logger.debug(".Starting to clean pingers (%d)" % len(pinged))
-            for address in pinged.copy():
-                leave(address)
-            logger.debug(".Kicking afks (if any)")
-            for address, timestamp in list(timeStamps.items()):
-                if timestamp + AFK_RATE < t0:
-                    leave(address)
-            pinged.update(lobby)
-            notify_lobby(b".")
-            logger.debug(".PINGED")
-            sleep(max(PING_RATE - time() + t0, 0))
+            for values in actions.copy():
+                values[0](*values[1:])
+                actions.popleft()
+            d = time() - t0
+            if d > .1:
+                logger.warn("Actions took %.3f seconds" % d)
 
     def lobby_loop(self):
         # Locals
+        actions = self.actions
         lobby = self.lobby
         sockets = self.sockets
         passwords = self.passwords
@@ -186,7 +188,7 @@ class Server():
                 except BlockingIOError:
                     continue
                 except (ConnectionResetError, ConnectionAbortedError):
-                    leave(address)
+                    actions.append((leave, address))
                 else:
                     data = decrypt(sockets[address].recv(size),
                                    passwords[address])
@@ -196,23 +198,24 @@ class Server():
                         logger.debug(".%s answered the ping (%d left)" %
                                      (userStr, len(pinged)))
                     elif data.startswith(b"?"):
+                        message = b"?%s" % users[address][:2] + data[1:]
+                        actions.append((notify_lobby, message))
                         if not data[1:]:
                             queue.discard(address)
                             queueFlags.pop(address, None)
-                            notify_lobby(b"?%s" % users[address][:2])
-                            continue
-                        queue.add(address)
-                        queueFlags[address] = data[1:]
-                        message = b"?%s" % users[address][:2] + data[1:]
-                        notify_lobby(message)
-                        logger.debug("%s asked for a match: %s" %
-                                     (userStr, str(data[1:])))
+                            logger.debug("%s deleted his queue" % userStr)
+                        else:
+                            queue.add(address)
+                            queueFlags[address] = data[1:]
+                            logger.debug("%s asked for a match: %s" %
+                                        (userStr, str(data[1:])))
                     elif data.startswith(b"!"):
                         try:
                             opponent = next(i for i, j in list(users.items())
                                             if j.startswith(data[1:]))
                         except StopIteration:
-                            pass  # Opponent doesnt exist
+                            logger.error(b"unknown user %s" % data[1:])
+                            return
                         if opponent not in queue:
                             continue
                         flags = queueFlags[opponent]
@@ -224,6 +227,29 @@ class Server():
                                       flags))
                     else:
                         logger.warn("%s -> %s" % (userStr, str(data)))
+
+    def ping_loop(self):
+        # Locals
+        actions = self.actions
+        lobby = self.lobby
+        timeStamps = self.timeStamps
+        pinged = self.pinged
+        leave = self.leave
+        notify_lobby = self.notify_lobby
+
+        while True:
+            t0 = time()
+            logger.debug(".Starting to clean pingers (%d)" % len(pinged))
+            for address in pinged.copy():
+                actions.append((leave, address))
+            logger.debug(".Kicking afks (if any)")
+            for address, timestamp in list(timeStamps.items()):
+                if timestamp + AFK_RATE < t0:
+                    actions.append((leave, address))
+            pinged.update(lobby)
+            actions.append((notify_lobby, b"."))
+            logger.debug(".PINGED")
+            sleep(max(PING_RATE - time() + t0, 0))
 
 
 if __name__ == "__main__":
