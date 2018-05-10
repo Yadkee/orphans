@@ -50,15 +50,16 @@ class Client():
         s.sendall(firstMsg)
         # Receive confirmation
         logger.info(read(1))  # Should be b"RECEIVED"
-        # Receive lobby info and queue
-        logger.info(read(3))
-        logger.info(read(3))
         # Start loop
         while True:
             data = read(1)
             if data == b".":
                 send(encrypt(b",", password))
                 logger.debug("Answered the ping")
+            elif data == b"INFO":
+                # Receive lobby info and queue
+                logger.info(read(3))
+                logger.info(read(3))
             else:
                 logger.info(data)
 

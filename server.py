@@ -4,6 +4,7 @@ from secure import (rsa, encrypt, decrypt, PASS_SIZE)
 from threading import Thread
 from time import (time, sleep)
 from collections import deque
+from itertools import chain
 
 from logging import (basicConfig, getLogger, DEBUG)
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -55,6 +56,7 @@ class Server():
         users[address] = user
         queueList = b";".join(users[i][:2] + queueFlags[i] for i in queue)
 
+        esend(self.sockets[address], b"INFO", self.passwords[address])
         esend(self.sockets[address], userList, self.passwords[address], 3)
         esend(self.sockets[address], queueList, self.passwords[address], 3)
         self.notify_lobby(b"+" + user)
@@ -70,6 +72,14 @@ class Server():
         for address in self.lobby.copy():
             esend(sockets[address], data, passwords[address])
 
+    def notify_games(self, data):
+        # Locals
+        sockets = self.sockets
+        passwords = self.passwords
+
+        for address in chain(*self.games.copy()):
+            esend(sockets[address], data, passwords[address])
+
     def leave_lobby(self, address):
         self.lobby.remove(address)
         user = self.users[address]
@@ -78,12 +88,31 @@ class Server():
         self.queueFlags.pop(address, None)
         logger.debug("L-%s (%d)" % (userToStr(user), len(self.lobby)))
 
+    def leave_games(self, address, goToLobby=True):
+        # Locals
+        games = self.games
+
+        try:
+            pair = next(pair for pair in games.copy() if address in pair)
+        except StopIteration:
+            return
+        self.games.remove(pair)
+        del self.gamesFlags[pair]
+        logger.debug("%s stopped playing" % repr(pair))
+        if address != pair[0]:
+            pair = pair[::-1]
+        if goToLobby:
+            self.join_lobby(pair[0])
+        self.join_lobby(pair[1])
+
     def leave(self, address):
         lobby = self.lobby
         if address in lobby:
             self.leave_lobby(address)
+        elif address in self.sockets:
+            self.leave_games(address, goToLobby=False)
         else:
-            pass  # TODO: Leave game
+            return
         try:
             self.sockets[address].close()
         except (ConnectionResetError, ConnectionAbortedError):
@@ -94,7 +123,7 @@ class Server():
             self.users[address], self.timeStamps[address])
         self.pinged.discard(address)
 
-        logger.info("-%s [%d]" % (user, len(lobby) + len(self.game)))
+        logger.info("-%s [%d]" % (user, len(lobby) + len(self.games) * 2))
 
     def run(self):
         def handle(socket, address):
@@ -114,7 +143,7 @@ class Server():
             self.users[address] = self.freeIds.pop() + name.encode()
             userStr = userToStr(self.users[address])
             logger.info("+%s [%d]" %
-                        (userStr, len(lobby) + len(self.game) + 1))
+                        (userStr, len(lobby) + len(self.games) * 2 + 1))
             self.join_lobby(address)
         s = newSocket()
         s.bind(self.address)
@@ -125,9 +154,8 @@ class Server():
         self.lobby = set()
         self.queue = set()
         self.queueFlags = dict()
-        self.game = set()
-        self.gameFlags = dict()
-        self.gameOponent = dict()
+        self.games = set()
+        self.gamesFlags = dict()
         self.freeIds = set(i.to_bytes(2, "big") for i in range(1 << 16))
         # AddressInfo
         self.sockets = dict()
@@ -137,6 +165,7 @@ class Server():
         # Loops
         Thread(target=self.actions_loop, daemon=True).start()
         Thread(target=self.lobby_loop, daemon=True).start()
+        Thread(target=self.games_loop, daemon=True).start()
         Thread(target=self.ping_loop, daemon=True).start()
         logger.info("Started all the loops")
 
@@ -175,6 +204,8 @@ class Server():
         queue = self.queue
         queueFlags = self.queueFlags
         leave = self.leave
+        games = self.games
+        gamesFlags = self.gamesFlags
         leave_lobby = self.leave_lobby
         notify_lobby = self.notify_lobby
 
@@ -208,7 +239,7 @@ class Server():
                             queue.add(address)
                             queueFlags[address] = data[1:]
                             logger.debug("%s asked for a match: %s" %
-                                        (userStr, str(data[1:])))
+                                         (userStr, str(data[1:])))
                     elif data.startswith(b"!"):
                         try:
                             opponent = next(i for i, j in list(users.items())
@@ -216,26 +247,65 @@ class Server():
                         except StopIteration:
                             logger.error(b"unknown user %s" % data[1:])
                             return
-                        if opponent not in queue:
+                        if opponent not in queue or opponent == address:
                             continue
                         flags = queueFlags[opponent]
-                        # TODO: Create a game
-                        # leave_lobby(address)
-                        # leave_lobby(opponent)
+                        pair = (opponent, address)
+                        games.add(pair)
+                        gamesFlags[pair] = flags
+                        actions.append((leave_lobby, address))
+                        actions.append((leave_lobby, opponent))
                         logger.debug("%s is playing against %s (%s)" %
                                      (userStr, userToStr(users[opponent]),
                                       flags))
                     else:
                         logger.warn("%s -> %s" % (userStr, str(data)))
 
+    def games_loop(self):
+        # Locals
+        actions = self.actions
+        games = self.games
+        sockets = self.sockets
+        passwords = self.passwords
+        users = self.users
+        leave = self.leave
+        pinged = self.pinged
+
+        while True:
+            for pair in games.copy():
+                for address, opponent in (pair, pair[::-1]):
+                    try:
+                        size = int.from_bytes(sockets[address].recv(1), "big")
+                        if not size:
+                            logger.debug("%s chose to leave" % address)
+                            raise ConnectionAbortedError
+                    except BlockingIOError:
+                        continue
+                    except (ConnectionResetError, ConnectionAbortedError):
+                        actions.append((leave, address))
+                        break
+                    else:
+                        data = decrypt(sockets[address].recv(size),
+                                       passwords[address])
+                        userStr = userToStr(users[address])
+                        if data == b",":
+                            pinged.discard(address)
+                            logger.debug(".%s answered the ping (%d left)" %
+                                         (userStr, len(pinged)))
+                        else:
+                            esend(sockets[opponent], data, passwords[opponent])
+                            logger.warn("%s -> %s" % (userStr, str(data)))
+
     def ping_loop(self):
         # Locals
         actions = self.actions
         lobby = self.lobby
+        games = self.games
         timeStamps = self.timeStamps
         pinged = self.pinged
         leave = self.leave
         notify_lobby = self.notify_lobby
+        notify_games = self.notify_games
 
         while True:
             t0 = time()
@@ -247,7 +317,9 @@ class Server():
                 if timestamp + AFK_RATE < t0:
                     actions.append((leave, address))
             pinged.update(lobby)
+            pinged.update(chain(*games))
             actions.append((notify_lobby, b"."))
+            actions.append((notify_games, b"."))
             logger.debug(".PINGED")
             sleep(max(PING_RATE - time() + t0, 0))
 
