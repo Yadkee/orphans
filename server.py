@@ -1,6 +1,6 @@
 #! python3
 from socket import socket as newSocket
-from secure import (rsa, encrypt, decrypt, PASS_SIZE)
+from secure import (rsa, encrypt, decrypt, PASS_SIZE, generate_password)
 from threading import Thread
 from time import (time, sleep)
 from collections import deque
@@ -12,7 +12,8 @@ logger = getLogger("Server")
 logger.setLevel(DEBUG)
 
 NICKNAME_MAX_SIZE = 16
-MAX_USERS = 256
+DEFAULT_MAX_USERS = 256
+MAX_USERS = DEFAULT_MAX_USERS
 PING_RATE = 30
 AFK_TIME_LIMIT = 600
 GAME_TIME_LIMIT = 3600
@@ -43,7 +44,12 @@ class Server():
                    self.publicKey)
         with open("serverAddress", "wb") as f:
             f.write(b"\n\r".join(encoded))
-        logger.info("Created serverAddress")
+        # Create secret
+        self.secret = generate_password(32)
+        with open("secret", "wb") as f:
+            f.write(self.secret)
+
+        logger.info("Created serverAddress and secret")
 
     def join_lobby(self, address):
         # Locals
@@ -150,6 +156,7 @@ class Server():
         s.bind(self.address)
         s.listen(5)
 
+        self.stop = False
         self.actions = deque()
         self.pinged = set()
         self.lobby = set()
@@ -169,10 +176,12 @@ class Server():
         Thread(target=self.games_loop, daemon=True).start()
         Thread(target=self.ping_loop, daemon=True).start()
         logger.info("Started all the loops")
-
+        # Locals
         actions = self.actions
         lobby = self.lobby
-        while True:
+        stop = self.stop
+
+        while not stop:
             socket, raw = s.accept()
             address = raw[0] + ":" + str(raw[1])
             if len(lobby) >= MAX_USERS:
@@ -195,6 +204,25 @@ class Server():
                 logger.warn("Actions took %.3f seconds" % d)
 
     def lobby_loop(self):
+        def admin_loop(address):
+            socket = sockets[address]
+            socket.setblocking(True)
+            try:
+                size = int.from_bytes(sockets[address].recv(1), "big")
+                if not size:
+                    logger.debug("%s chose to leave" % address)
+                    raise ConnectionAbortedError
+            except (ConnectionResetError, ConnectionAbortedError):
+                actions.append((leave, address))
+            else:
+                data = decrypt(socket.recv(size), passwords[address])
+                if data == b"CLOSE":
+                    MAX_USERS = 0
+                elif data == b"OPEN":
+                    MAX_USERS = DEFAULT_MAX_USERS
+                elif data == b"STOP":
+                    self.stop = True
+            socket.setblocking(False)
         # Locals
         actions = self.actions
         lobby = self.lobby
@@ -229,6 +257,8 @@ class Server():
                         pinged.discard(address)
                         logger.debug(".%s answered the ping (%d left)" %
                                      (userStr, len(pinged)))
+                    elif data.startswith(b"/") and data[1:] == self.secret:
+                        admin_loop(address)
                     elif data.startswith(b"?"):
                         message = b"?%s" % users[address][:2] + data[1:]
                         actions.append((notify_lobby, message))
