@@ -205,12 +205,12 @@ class Server():
             for values in actions.copy():
                 values[0](*values[1:])
                 actions.popleft()
-            d = time() - t0
-            if d > .1:
-                logger.warn("Actions took %d ms" % d * 1000)
-                if d > .5:
+            d = int((time() - t0) * 1000)
+            if d > 100:
+                logger.warn("Actions took %d ms" % d)
+                if d > 500:
                     logger.warn("!!!")
-                if d > 1:
+                if d > 1000:
                     logger.error("BE CAREFUL\n!!!")
 
     def lobby_loop(self):
@@ -361,13 +361,11 @@ class Server():
             t0 = time()
             inLobby = t0 - AFK_TIME_LIMIT
             inGame = t0 - GAME_TIME_LIMIT
-            logger.debug(".Starting to clean pingers (%d)" % len(pinged))
             for address in pinged.copy():
                 actions.append((leave, address))
                 userStr = userToStr(users[address])
                 logger.info("%s did not answer the ping so was kicked" % 
                             userStr)
-            logger.debug(".Kicking afks (if any)")
             for address, timestamp in list(timeStamps.items()):
                 if (address in lobby and timestamp < inLobby or
                    timestamp < inGame):
@@ -379,7 +377,7 @@ class Server():
             pinged.update(chain(*games))
             actions.append((notify_lobby, b"."))
             actions.append((notify_games, b"."))
-            logger.debug(".PINGED")
+            logger.debug(".")
             sleep(max(PING_RATE - time() + t0, 5))
 
 
