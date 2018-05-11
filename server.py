@@ -12,8 +12,7 @@ logger = getLogger("Server")
 logger.setLevel(DEBUG)
 
 NICKNAME_MAX_SIZE = 16
-DEFAULT_MAX_USERS = 256
-MAX_USERS = DEFAULT_MAX_USERS
+MAX_USERS = 256
 PING_RATE = 30
 AFK_TIME_LIMIT = 600
 GAME_TIME_LIMIT = 3600
@@ -59,7 +58,7 @@ class Server():
         queueFlags = self.queueFlags
 
         user = users.pop(address)
-        userList = b";".join(users.values())
+        userList = b";".join(users[i] for i in lobby)
         users[address] = user
         queueList = b";".join(users[i][:2] + queueFlags[i] for i in queue)
 
@@ -69,7 +68,6 @@ class Server():
         self.notify_lobby(b"+" + user)
         lobby.add(address)
         self.timeStamps[address] = time()
-        logger.debug("L+%s (%d)" % (userToStr(user), len(lobby)))
 
     def notify_lobby(self, data):
         # Locals
@@ -93,7 +91,6 @@ class Server():
         self.notify_lobby(b"-" + user[:2])
         self.queue.discard(address)
         self.queueFlags.pop(address, None)
-        logger.debug("L-%s (%d)" % (userToStr(user), len(self.lobby)))
 
     def leave_games(self, address, goToLobby=True):
         # Locals
@@ -124,13 +121,14 @@ class Server():
             self.sockets[address].close()
         except (ConnectionResetError, ConnectionAbortedError):
             pass
-        user = self.users[address]
+        userStr = userToStr(self.users[address])
         # Clean variables
         del(self.sockets[address], self.passwords[address],
             self.users[address], self.timeStamps[address])
         self.pinged.discard(address)
-
-        logger.info("-%s [%d]" % (user, len(lobby) + len(self.games) * 2))
+        ll, lg = len(lobby), len(self.games) * 2
+        logger.info("-%s [%d + %d = %d/%d]" %
+                    (userStr, ll, lg, ll + lg, self.maxUsers[0]))
 
     def run(self):
         def handle(socket, address):
@@ -149,14 +147,16 @@ class Server():
             self.passwords[address] = password
             self.users[address] = self.freeIds.pop() + name.encode()
             userStr = userToStr(self.users[address])
-            logger.info("+%s [%d]" %
-                        (userStr, len(lobby) + len(self.games) * 2 + 1))
+            ll, lg = len(lobby), len(self.games) * 2
+            logger.info("+%s [%d + %d = %d/%d]" %
+                        (userStr, ll + 1, lg, ll + lg + 1, self.maxUsers[0]))
             self.join_lobby(address)
         s = newSocket()
         s.bind(self.address)
         s.listen(5)
+        self.s = s
+        self.maxUsers = [MAX_USERS]
 
-        self.stop = False
         self.actions = deque()
         self.pinged = set()
         self.lobby = set()
@@ -179,14 +179,20 @@ class Server():
         # Locals
         actions = self.actions
         lobby = self.lobby
-        stop = self.stop
+        games = self.games
+        maxUsers = self.maxUsers
 
-        while not stop:
-            socket, raw = s.accept()
+        while True:
+            try:
+                socket, raw = s.accept()
+            except OSError:
+                break
             address = raw[0] + ":" + str(raw[1])
-            if len(lobby) >= MAX_USERS:
+            amount = len(lobby) + len(games) * 2
+            if amount >= maxUsers[0]:
                 socket.close()
-                logger.info("*%s size limit exceeded" % address)
+                logger.info("*%s size limit exceeded (%d/%d)" %
+                            (address, amount, maxUsers[0]))
             else:
                 actions.append((handle, socket, address))
 
@@ -201,7 +207,11 @@ class Server():
                 actions.popleft()
             d = time() - t0
             if d > .1:
-                logger.warn("Actions took %.3f seconds" % d)
+                logger.warn("Actions took %d ms" % d * 1000)
+                if d > .5:
+                    logger.warn("!!!")
+                if d > 1:
+                    logger.error("BE CAREFUL\n!!!")
 
     def lobby_loop(self):
         def admin_loop(address):
@@ -216,12 +226,16 @@ class Server():
                 actions.append((leave, address))
             else:
                 data = decrypt(socket.recv(size), passwords[address])
+                logger.info(data)
                 if data == b"CLOSE":
-                    MAX_USERS = 0
+                    logger.warn("Server closed by an admin")
+                    self.maxUsers[0] = 1
                 elif data == b"OPEN":
-                    MAX_USERS = DEFAULT_MAX_USERS
+                    logger.warn("Server is open again")
+                    self.maxUsers[0] = MAX_USERS
                 elif data == b"STOP":
-                    self.stop = True
+                    logger.error("Stop requested by admin")
+                    self.s.close()
             socket.setblocking(False)
         # Locals
         actions = self.actions
@@ -258,6 +272,7 @@ class Server():
                         logger.debug(".%s answered the ping (%d left)" %
                                      (userStr, len(pinged)))
                     elif data.startswith(b"/") and data[1:] == self.secret:
+                        logger.info("%s is in admin mode" % userStr)
                         admin_loop(address)
                     elif data.startswith(b"?"):
                         message = b"?%s" % users[address][:2] + data[1:]
@@ -276,9 +291,10 @@ class Server():
                             opponent = next(i for i, j in list(users.items())
                                             if j.startswith(data[1:]))
                         except StopIteration:
-                            logger.error(b"unknown user %s" % data[1:])
-                            return
+                            logger.error(b"Unknown user %s" % data[1:])
+                            continue
                         if opponent not in queue or opponent == address:
+                            logger.error("User %s is not in queue" % data[1:])
                             continue
                         flags = queueFlags[opponent]
                         pair = (opponent, address)
