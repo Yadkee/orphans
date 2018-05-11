@@ -14,7 +14,8 @@ logger.setLevel(DEBUG)
 NICKNAME_MAX_SIZE = 16
 MAX_USERS = 256
 PING_RATE = 30
-AFK_RATE = 600
+AFK_TIME_LIMIT = 600
+GAME_TIME_LIMIT = 3600
 
 
 def send(socket, data, size=1):
@@ -312,12 +313,15 @@ class Server():
 
         while True:
             t0 = time()
+            inLobby = t0 - AFK_TIME_LIMIT
+            inGame = t0 - GAME_TIME_LIMIT
             logger.debug(".Starting to clean pingers (%d)" % len(pinged))
             for address in pinged.copy():
                 actions.append((leave, address))
             logger.debug(".Kicking afks (if any)")
             for address, timestamp in list(timeStamps.items()):
-                if timestamp + AFK_RATE < t0 and address in lobby:
+                if (address in lobby and timestamp < inLobby or
+                   timestamp < inGame):
                     actions.append((leave, address))
             pinged.update(lobby)
             pinged.update(chain(*games))
