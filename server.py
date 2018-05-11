@@ -317,7 +317,7 @@ class Server():
                 actions.append((leave, address))
             logger.debug(".Kicking afks (if any)")
             for address, timestamp in list(timeStamps.items()):
-                if timestamp + AFK_RATE < t0:
+                if timestamp + AFK_RATE < t0 and address in lobby:
                     actions.append((leave, address))
             pinged.update(lobby)
             pinged.update(chain(*games))
