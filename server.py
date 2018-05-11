@@ -253,6 +253,9 @@ class Server():
                         pair = (opponent, address)
                         games.add(pair)
                         gamesFlags[pair] = flags
+                        message = b"PLAY"
+                        esend(sockets[address], message, passwords[opponent])
+                        esend(sockets[opponent], message, passwords[opponent])
                         actions.append((leave_lobby, address))
                         actions.append((leave_lobby, opponent))
                         logger.debug("%s is playing against %s (%s)" %
