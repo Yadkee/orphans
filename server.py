@@ -255,7 +255,7 @@ class Server():
                         games.add(pair)
                         gamesFlags[pair] = flags
                         message = b"PLAY"
-                        esend(sockets[address], message, passwords[opponent])
+                        esend(sockets[address], message, passwords[address])
                         esend(sockets[opponent], message, passwords[opponent])
                         actions.append((leave_lobby, address))
                         actions.append((leave_lobby, opponent))
@@ -297,7 +297,8 @@ class Server():
                             logger.debug(".%s answered the ping (%d left)" %
                                          (userStr, len(pinged)))
                         else:
-                            esend(sockets[opponent], data, passwords[opponent])
+                            new = b":" + data  # To know know it is not server
+                            esend(sockets[opponent], new, passwords[opponent])
                             logger.warn("%s -> %s" % (userStr, str(data)))
 
     def ping_loop(self):
