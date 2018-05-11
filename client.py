@@ -80,11 +80,13 @@ class Client():
 
         self.users = set()
         self.queue = set()
+        self.queueFlags = dict()
         self.playing = False
         # Locals
         esend = self.esend
         users = self.users
         queue = self.queue
+        queueFlags = self.queueFlags
 
         while True:
             data = read(1)
@@ -93,10 +95,30 @@ class Client():
                 logger.debug("Answered the ping")
             elif data == b"INFO":
                 # Receive lobby info and queue
-                logger.info(read(3))
-                logger.info(read(3))
+                users.clear()
+                queue.clear()
+                users.update(read(3).split(b";"))
+                rQueue = read(3).split(b";")
+                for i in rQueue:
+                    queue.add(i[:2])
+                    queueFlags[i[:2]] = i[2:]
             elif data == b"PLAY":
-
+                self.playing = True
+            elif data.startswith(b"+"):
+                users.add(data[1:])
+            elif data.startswith(b"-"):
+                for i in users:
+                    if i.startswith(data[1:]):
+                        users.remove(i)
+                        break
+            elif data.startswith(b"?"):
+                user = data[1:3]
+                flags = data[3:]
+                if flags:
+                    queue.add(user)
+                    queueFlags[user] = flags
+                else:
+                    queue.remove(user)
             else:
                 logger.info(data)
 
