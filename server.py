@@ -269,10 +269,8 @@ class Server():
                     userStr = userToStr(users[address])
                     if data == b",":
                         pinged.discard(address)
-                        logger.debug(".%s answered the ping (%d left)" %
-                                     (userStr, len(pinged)))
                     elif data.startswith(b"/") and data[1:] == self.secret:
-                        logger.info("%s is in admin mode" % userStr)
+                        logger.info("/%s/ is in admin mode:" % userStr)
                         admin_loop(address)
                     elif data.startswith(b"?"):
                         message = b"?%s" % users[address][:2] + data[1:]
@@ -345,7 +343,7 @@ class Server():
                         else:
                             new = b":" + data  # To know know it is not server
                             esend(sockets[opponent], new, passwords[opponent])
-                            logger.warn("%s -> %s" % (userStr, str(data)))
+                            logger.debug("%s -> %s" % (userStr, str(data)))
 
     def ping_loop(self):
         # Locals
@@ -355,6 +353,7 @@ class Server():
         timeStamps = self.timeStamps
         pinged = self.pinged
         leave = self.leave
+        users = self.users
         notify_lobby = self.notify_lobby
         notify_games = self.notify_games
 
@@ -365,11 +364,17 @@ class Server():
             logger.debug(".Starting to clean pingers (%d)" % len(pinged))
             for address in pinged.copy():
                 actions.append((leave, address))
+                userStr = userToStr(users[address])
+                logger.info("%s did not answer the ping so was kicked" % 
+                            userStr)
             logger.debug(".Kicking afks (if any)")
             for address, timestamp in list(timeStamps.items()):
                 if (address in lobby and timestamp < inLobby or
                    timestamp < inGame):
                     actions.append((leave, address))
+                    userStr = userToStr(users[address])
+                    logger.info("%s has been afk for too much so was kicked" % 
+                                userStr)
             pinged.update(lobby)
             pinged.update(chain(*games))
             actions.append((notify_lobby, b"."))
