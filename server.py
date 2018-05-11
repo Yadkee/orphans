@@ -328,7 +328,7 @@ class Server():
             actions.append((notify_lobby, b"."))
             actions.append((notify_games, b"."))
             logger.debug(".PINGED")
-            sleep(max(PING_RATE - time() + t0, 0))
+            sleep(max(PING_RATE - time() + t0, 5))
 
 
 if __name__ == "__main__":
