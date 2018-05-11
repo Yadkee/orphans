@@ -22,56 +22,27 @@ class Client():
         self.server = (name, ip, port, serverCipher)
         logger.info("Read serverAdress")
 
-    def send(self, raw):
+    def esend(self, raw):
         data = encrypt(raw, self.password)
         self.s.sendall(len(data).to_bytes(1, "big") + data)
 
-    def run(self):
-        def read(metasize):
-            size = int.from_bytes(s.recv(metasize), "big")
-            data = decrypt(s.recv(size), password)
-            return data
-
-        def send(data):
-            s.sendall(len(data).to_bytes(1, "big") + data)
-        serverCipher = self.server[3]
-        password = generate_password(PASS_SIZE)
-        self.password = password
-        firstMsg = serverCipher.encrypt(password + self.name)
-        logger.info("Connecting to the server")
-        s = newSocket()
-        self.s = s
+    def admin(self, data):
         try:
-            s.connect(self.server[1:3])
-        except ConnectionRefusedError:
-            logger.error("Connection refused by the server")
+            with open("secret", "rb") as f:
+                secret = f.read()
+        except FileNotFoundError:
             return
-        # Send password
-        s.sendall(firstMsg)
-        # Receive confirmation
-        logger.info(read(1))  # Should be b"RECEIVED"
-        # Start loop
-        while True:
-            data = read(1)
-            if data == b".":
-                send(encrypt(b",", password))
-                logger.debug("Answered the ping")
-            elif data == b"INFO":
-                # Receive lobby info and queue
-                logger.info(read(3))
-                logger.info(read(3))
-            else:
-                logger.info(data)
+        else:
+            self.esend(b"/" + secret)
+            self.esend(data)
 
-
-if __name__ == "__main__":
-    client = Client("Peter")
-    Thread(target=client.run, daemon=True).start()
-    while True:
-        inp = input()
+    def process_text(self, text):
+        if text.startswith("/"):
+            client.admin(text[1:].encode())
+            return
         enc = []
         replace = 0
-        for i in inp:
+        for i in text:
             if i == "#":
                 replace = 4
                 number = None
@@ -83,4 +54,55 @@ if __name__ == "__main__":
                 replace -= 1
             else:
                 enc.append(ord(i))
-        client.send(bytes(enc))
+        client.esend(bytes(enc))
+
+    def run(self):
+        def read(metasize):
+            size = int.from_bytes(s.recv(metasize), "big")
+            data = decrypt(s.recv(size), password)
+            return data
+        # Generate password and encrypt it
+        password = generate_password(PASS_SIZE)
+        self.password = password
+        firstMsg = self.server[3].encrypt(password + self.name)
+        # Create the socket
+        logger.info("Connecting to the server")
+        s = newSocket()
+        self.s = s
+        try:
+            s.connect(self.server[1:3])
+        except ConnectionRefusedError:
+            logger.error("Connection refused by the server")
+            return
+        # Send password
+        s.sendall(firstMsg)
+        logger.info(read(1))  # Should be b"RECEIVED"
+
+        self.users = set()
+        self.queue = set()
+        self.playing = False
+        # Locals
+        esend = self.esend
+        users = self.users
+        queue = self.queue
+
+        while True:
+            data = read(1)
+            if data == b".":
+                esend(b",")
+                logger.debug("Answered the ping")
+            elif data == b"INFO":
+                # Receive lobby info and queue
+                logger.info(read(3))
+                logger.info(read(3))
+            elif data == b"PLAY":
+
+            else:
+                logger.info(data)
+
+
+if __name__ == "__main__":
+    client = Client("Peter")
+    Thread(target=client.run, daemon=True).start()
+    while True:
+        client.process_text(input())

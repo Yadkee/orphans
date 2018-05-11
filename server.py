@@ -128,7 +128,7 @@ class Server():
         self.pinged.discard(address)
         ll, lg = len(lobby), len(self.games) * 2
         logger.info("-%s [%d + %d = %d/%d]" %
-                    (userStr, ll, lg, ll + lg, self.maxUsers[0]))
+                    (userStr, ll, lg, ll + lg, self.maxUsers))
 
     def run(self):
         def handle(socket, address):
@@ -149,13 +149,13 @@ class Server():
             userStr = userToStr(self.users[address])
             ll, lg = len(lobby), len(self.games) * 2
             logger.info("+%s [%d + %d = %d/%d]" %
-                        (userStr, ll + 1, lg, ll + lg + 1, self.maxUsers[0]))
+                        (userStr, ll + 1, lg, ll + lg + 1, self.maxUsers))
             self.join_lobby(address)
         s = newSocket()
         s.bind(self.address)
         s.listen(5)
         self.s = s
-        self.maxUsers = [MAX_USERS]
+        self.maxUsers = MAX_USERS
 
         self.actions = deque()
         self.pinged = set()
@@ -180,7 +180,6 @@ class Server():
         actions = self.actions
         lobby = self.lobby
         games = self.games
-        maxUsers = self.maxUsers
 
         while True:
             try:
@@ -189,10 +188,10 @@ class Server():
                 break
             address = raw[0] + ":" + str(raw[1])
             amount = len(lobby) + len(games) * 2
-            if amount >= maxUsers[0]:
+            if amount >= self.maxUsers:
                 socket.close()
                 logger.info("*%s size limit exceeded (%d/%d)" %
-                            (address, amount, maxUsers[0]))
+                            (address, amount, self.maxUsers))
             else:
                 actions.append((handle, socket, address))
 
@@ -229,10 +228,10 @@ class Server():
                 logger.info(data)
                 if data == b"CLOSE":
                     logger.warn("Server closed by an admin")
-                    self.maxUsers[0] = 1
+                    self.maxUsers = 1
                 elif data == b"OPEN":
                     logger.warn("Server is open again")
-                    self.maxUsers[0] = MAX_USERS
+                    self.maxUsers = MAX_USERS
                 elif data == b"STOP":
                     logger.error("Stop requested by admin")
                     self.s.close()
