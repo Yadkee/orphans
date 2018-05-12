@@ -121,6 +121,7 @@ class Server():
             self.sockets[address].close()
         except (ConnectionResetError, ConnectionAbortedError):
             pass
+        self.freeIds.add(self.users[address][:2])
         userStr = userToStr(self.users[address])
         # Clean variables
         del(self.sockets[address], self.passwords[address],
@@ -139,13 +140,14 @@ class Server():
             decrypted = self.privateCipher.decrypt(message)
             password, rawName = decrypted[:PASS_SIZE], decrypted[PASS_SIZE:]
             name = "".join(chr(i) for i in rawName)[:NICKNAME_MAX_SIZE]
-            esend(socket, b"RECEIVED", password)
+            user = self.freeIds.pop() + name.encode()
+            esend(socket, b"=" + user, password)
             logger.debug("Received %s's (%s) password" % (name, address))
 
             socket.setblocking(False)
             self.sockets[address] = socket
             self.passwords[address] = password
-            self.users[address] = self.freeIds.pop() + name.encode()
+            self.users[address] = user
             userStr = userToStr(self.users[address])
             ll, lg = len(lobby), len(self.games) * 2
             logger.info("+%s [%d + %d = %d/%d]" %
@@ -363,14 +365,14 @@ class Server():
             for address in pinged.copy():
                 actions.append((leave, address))
                 userStr = userToStr(users[address])
-                logger.info("%s did not answer the ping so was kicked" % 
+                logger.info("%s did not answer the ping so was kicked" %
                             userStr)
             for address, timestamp in list(timeStamps.items()):
                 if (address in lobby and timestamp < inLobby or
                    timestamp < inGame):
                     actions.append((leave, address))
                     userStr = userToStr(users[address])
-                    logger.info("%s has been afk for too much so was kicked" % 
+                    logger.info("%s has been afk for too much so was kicked" %
                                 userStr)
             pinged.update(lobby)
             pinged.update(chain(*games))
