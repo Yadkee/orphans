@@ -14,6 +14,7 @@ class Client():
     def __init__(self, join):
         self.name = ""
         self.join = join
+        self.update = lambda: None
         # Read serverAdress file
         with open("serverAddress", "rb") as f:
             args = f.read().split(b"\n\r")
@@ -97,22 +98,28 @@ class Client():
                 # Receive lobby info and queue
                 users.clear()
                 queue.clear()
-                users.update(read(3).split(b";"))
+                rUsers = read(3).split(b";")
+                if rUsers != [b""]:
+                    users.update(rUsers)
                 rQueue = read(3).split(b";")
-                for i in rQueue:
-                    queue.add(i[:2])
-                    queueFlags[i[:2]] = i[2:]
+                if rQueue != [b""]:
+                    for i in rQueue:
+                        queue.add(i[:2])
+                        queueFlags[i[:2]] = i[2:]
+                self.update()
             elif data == b"PLAY":
                 self.playing = True
             elif data.startswith(b"="):
                 self.join(data[1:])
             elif data.startswith(b"+"):
                 users.add(data[1:])
+                self.update()
             elif data.startswith(b"-"):
                 for i in users:
                     if i.startswith(data[1:]):
                         users.remove(i)
                         break
+                self.update()
             elif data.startswith(b"?"):
                 user = data[1:3]
                 flags = data[3:]
@@ -121,6 +128,7 @@ class Client():
                     queueFlags[user] = flags
                 else:
                     queue.remove(user)
+                self.update()
             else:
                 logger.info(data)
 
