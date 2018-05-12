@@ -1,17 +1,17 @@
 #! python3
 import tkinter as tk
+from threading import Thread
 
 
 class Idle(tk.Frame):
-    def __init__(self, master, callback):
+    def __init__(self, master, client):
         def click():
-            callback(self.entry.get())
+            client.name = self.entry.get().encode()
+            Thread(target=client.run, daemon=True).start()
         tk.Frame.__init__(self, master)
-        # Read serverAdress file
-        with open("serverAddress", "rb") as f:
-            encoded, _ = f.read().split(b"\n\r", 1)
-        name = encoded.decode()
-        self.label = tk.Label(self, text=name, font=("Times", 50, "bold"))
+        master.minsize(400, 400)
+        self.label = tk.Label(self, text=client.server[0],
+                              font=("Times", 50, "bold"))
         self.entry = tk.Entry(self, width=16, font=("Consolas", 20))
         self.entry.insert(0, "MyName")
         self.button = tk.Button(self, text="JOIN", command=click,
