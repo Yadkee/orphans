@@ -11,8 +11,9 @@ logger.setLevel(DEBUG)
 
 
 class Client():
-    def __init__(self, name):
-        self.name = name.encode()
+    def __init__(self, join):
+        self.name = ""
+        self.join = join
         # Read serverAdress file
         with open("serverAddress", "rb") as f:
             args = f.read().split(b"\n\r")
@@ -76,7 +77,6 @@ class Client():
             return
         # Send password
         s.sendall(firstMsg)
-        logger.info(read(1))  # Should be b"RECEIVED"
 
         self.users = set()
         self.queue = set()
@@ -104,6 +104,8 @@ class Client():
                     queueFlags[i[:2]] = i[2:]
             elif data == b"PLAY":
                 self.playing = True
+            elif data.startswith(b"="):
+                self.join(data[1:])
             elif data.startswith(b"+"):
                 users.add(data[1:])
             elif data.startswith(b"-"):
@@ -124,7 +126,8 @@ class Client():
 
 
 if __name__ == "__main__":
-    client = Client("Peter")
+    client = Client(print)
+    client.name = b"Peter"
     Thread(target=client.run, daemon=True).start()
     while True:
         client.process_text(input())
