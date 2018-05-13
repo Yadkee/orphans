@@ -79,12 +79,14 @@ class Client():
         # Send password
         s.sendall(firstMsg)
 
-        self.users = set()
+        self.tags = set()
+        self.users = dict()
         self.queue = set()
         self.queueFlags = dict()
         self.playing = False
         # Locals
         esend = self.esend
+        tags = self.tags
         users = self.users
         queue = self.queue
         queueFlags = self.queueFlags
@@ -96,11 +98,14 @@ class Client():
                 logger.debug("Answered the ping")
             elif data == b"INFO":
                 # Receive lobby info and queue
-                users.clear()
+                tags.clear()
                 queue.clear()
                 rUsers = read(3).split(b";")
                 if rUsers != [b""]:
-                    users.update(rUsers)
+                    for user in rUsers:
+                        tag = user[:2]
+                        tags.add(tag)
+                        users[tag] = user[2:]
                 rQueue = read(3).split(b";")
                 if rQueue != [b""]:
                     for i in rQueue:
@@ -112,13 +117,16 @@ class Client():
             elif data.startswith(b"="):
                 self.join(data[1:])
             elif data.startswith(b"+"):
-                users.add(data[1:])
+                tag = data[1:3]
+                tags.add(tag)
+                users[tag] = data[3:]
                 self.update()
             elif data.startswith(b"-"):
-                for i in users:
-                    if i.startswith(data[1:]):
-                        users.remove(i)
-                        break
+                tag = data[1:]
+                del users[tag]
+                tags.remove(tag)
+                queue.discard(tag)
+                queueFlags.pop(tag, None)
                 self.update()
             elif data.startswith(b"?"):
                 user = data[1:3]
