@@ -6,24 +6,34 @@ from datetime import datetime
 from datetime import timedelta
 from math import ceil
 from json import load
+from os.path import join
 
 DAY = timedelta(1)
 YEAR = datetime.today().year
+CAKE = pg.image.load(join("images", "cake.png"))
+PLANE1 = pg.image.load(join("images", "plane1.png"))
+PLANE2 = pg.image.load(join("images", "plane2.png"))
 
 
 def _datetime(s):
     args = [int(i) for i in s.split("/")]
-    if args[2] < 1000:  # 1/1/18 to 1/1/2018
-        args[2] += 2000
     if len(args) == 2:  # 1/1 to 1/1/{user year}
         args.append(YEAR)
+    if args[2] < 1000:  # 1/1/18 to 1/1/2018
+        args[2] += 2000
     return datetime(*args[::-1])
 
 
-def create_calendar(path, iDay, fDay, margins, specialDates, holidays):
-    days = [_datetime(day) for day in (iDay, fDay, *specialDates, *holidays)]
-    specialSet = set(days[2:2 + len(specialDates)])
-    holidaySet = set(days[2 + len(specialDates):])
+def _birthday(s):
+    day, name = s.split("-", 1)
+    return (_datetime(day), name)
+
+
+def create_calendar(path, iDay, fDay, margins, dates):
+    days = _datetime(iDay), _datetime(fDay)
+    birthdays = dict(map(_birthday, dates["birthdays"]))
+    holidays = set(map(_datetime, dates["holidays"]))
+    trips = dict(map(_birthday, dates["trips"]))
     # Adjust to mondays and sundays (first and last respectively)
     initialDay = days[0] - timedelta(days[0].weekday())
     finalDay = days[1] + timedelta(6 - days[1].weekday())
@@ -40,7 +50,7 @@ def create_calendar(path, iDay, fDay, margins, specialDates, holidays):
     pg.font.init()
     wDayFont = pg.font.SysFont("Arial", 40)
     dayFont = pg.font.SysFont("Arial", 40)
-    sDayFont = pg.font.SysFont("Arial", 55)
+    textFont = pg.font.SysFont("Times", 30)
     # Prepare surface and set some sizes
     image = pg.surface.Surface(size)
     image.fill(gray[255])
@@ -73,16 +83,26 @@ def create_calendar(path, iDay, fDay, margins, specialDates, holidays):
                 if dayNumber == 8:
                     uB = 0
                 text = str(dayNumber)
-            if currentDay in specialSet:
-                blit_text(image, sDayFont, (x + lB, y + uB), text, gray[0],
-                          color, size=(width - lB, height - uB), anchor="NW")
-            else:
-                blit_text(image, dayFont, (x + lB, y + uB), text, gray[0],
-                          color, size=(width - lB, height - uB), anchor="NW")
-            if currentDay in holidaySet:
+            blit_text(image, dayFont, (x + lB, y + uB), text, gray[0],
+                      color, size=(width - lB, height - uB), anchor="NW")
+            if currentDay in birthdays:
+                blit_text(image, textFont, (x + lB + 80, y + uB + 5),
+                          birthdays[currentDay], gray[0],
+                          color, size=(width - lB - 80, height - uB - 5),
+                          anchor="NW")
+                image.blit(CAKE, (x + lB + 40, y + uB + 5))
+            if currentDay in holidays:
                 pos = (x + lB + (width - lB) // 2,
                        y + uB + 3 * (height - uB) // 4)
                 pg.draw.circle(image, gray[230], pos, height // 4, height // 9)
+            if currentDay in trips:
+                destination = trips[currentDay]
+                image.blit(PLANE1 if destination else PLANE2,
+                           (x + lB + 5, y + height - 35))
+                if destination:
+                    blit_text(image, textFont, (x + lB + 40, y + height - 38),
+                              destination, gray[0], color,
+                              size=(width - lB - 40, 38), anchor="NW")
             currentDay += DAY
         y += height
         if week != weeks - 1:
@@ -107,7 +127,7 @@ def main():
     """Edit cPath to set the parameters"""
     cPath = "config.json"
     try:
-        with open(cPath) as f:
+        with open(cPath, "rb") as f:
             config = load(f)["calendar"]
     except FileNotFoundError:
         raise Exception("Missing %s" % cPath)
