@@ -5,6 +5,9 @@ from reportlab.pdfgen import canvas
 from datetime import datetime
 from datetime import timedelta
 from math import ceil
+from math import cos
+from math import pi
+from math import exp
 from json import load
 from os.path import join
 
@@ -13,6 +16,22 @@ YEAR = datetime.today().year
 CAKE = pg.image.load(join("images", "cake.png"))
 PLANE1 = pg.image.load(join("images", "plane1.png"))
 PLANE2 = pg.image.load(join("images", "plane2.png"))
+
+
+def pattern(x, y, width, height, times=2, step=1):
+    M = 2 * pi * times
+    out = []
+    for i in range(0, width + 1, step):
+        value = -cos(i / width * M) * height
+        out.append((x + i, y + value))
+    out.append((x + width, y - height))
+    return out
+
+
+def f(x):
+    """Values from 1 to 10 reached first at (0, 1, 2, 3, 4, 5, 7, 9, 12, 17)"""
+    e = 11 - 10 * exp(-x / 7)
+    return int(e)
 
 
 def _datetime(s):
@@ -50,7 +69,7 @@ def create_calendar(path, iDay, fDay, margins, dates):
     pg.font.init()
     wDayFont = pg.font.SysFont("Arial", 40)
     dayFont = pg.font.SysFont("Arial", 40)
-    textFont = pg.font.SysFont("Times", 30)
+    textFont = pg.font.SysFont("Times", 25)
     # Prepare surface and set some sizes
     image = pg.surface.Surface(size)
     image.fill(gray[255])
@@ -69,6 +88,7 @@ def create_calendar(path, iDay, fDay, margins, dates):
     uB = 0  # Upper border
     currentDay = initialDay
     y = headerSize
+    away = 0
     for week in range(weeks):
         for wDay in range(7):
             lB = 0  # Lateral border
@@ -83,26 +103,37 @@ def create_calendar(path, iDay, fDay, margins, dates):
                 if dayNumber == 8:
                     uB = 0
                 text = str(dayNumber)
-            blit_text(image, dayFont, (x + lB, y + uB), text, gray[0],
+            px, py = x + lB, y + uB
+            blit_text(image, dayFont, (px, py), text, gray[0],
                       color, size=(width - lB, height - uB), anchor="NW")
             if currentDay in birthdays:
                 blit_text(image, textFont, (x + lB + 80, y + uB + 5),
                           birthdays[currentDay], gray[0],
                           color, size=(width - lB - 80, height - uB - 5),
                           anchor="NW")
-                image.blit(CAKE, (x + lB + 40, y + uB + 5))
+                image.blit(CAKE, (px + 40, py + 5))
             if currentDay in holidays:
-                pos = (x + lB + (width - lB) // 2,
-                       y + uB + 3 * (height - uB) // 4)
+                pos = (px + (width - lB) // 2,
+                       py + 3 * (height - uB) // 4)
                 pg.draw.circle(image, gray[230], pos, height // 4, height // 9)
             if currentDay in trips:
                 destination = trips[currentDay]
-                image.blit(PLANE1 if destination else PLANE2,
-                           (x + lB + 5, y + height - 35))
-                if destination:
-                    blit_text(image, textFont, (x + lB + 40, y + height - 38),
-                              destination, gray[0], color,
-                              size=(width - lB - 40, 38), anchor="NW")
+                name = destination.lstrip("><")
+                if name:
+                    blit_text(image, textFont, (px, y + height - 38),
+                              name, gray[0], color,
+                              size=(width - lB - 40, 38), anchor="E")
+                if "<" in destination:
+                    away = 0
+                    image.blit(PLANE2, (px + 5, y + height - 35))
+                if ">" in destination:
+                    away = 1
+                    image.blit(PLANE1, (x + width - 35, y + height - 35))
+            elif away:
+                pg.draw.aalines(image, gray[0], False,
+                                pattern(px, y + height - 13, width - lB, 11,
+                                        times=f(away)))
+                away += 1
             currentDay += DAY
         y += height
         if week != weeks - 1:
