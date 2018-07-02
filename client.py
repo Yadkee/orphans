@@ -2,7 +2,6 @@
 from socket import socket as newSocket
 from secure import (fromDer, generate_password,
                     encrypt, decrypt, PASS_SIZE)
-from threading import Thread
 
 from logging import (basicConfig, getLogger, DEBUG)
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -88,7 +87,10 @@ class Client():
         users = self.users
         queue = self.queue
         queueFlags = self.queueFlags
-        callback = self.callback
+        try:
+            callback = self.callback
+        except AttributeError:
+            callback = print
 
         while True:
             data = read(1)
@@ -110,23 +112,24 @@ class Client():
                     for i in rQueue:
                         queue.add(i[:2])
                         queueFlags[i[:2]] = i[2:]
-                callback("u")
+                callback("LOBBY")
             elif data == b"PLAY":
                 self.playing = True
+                callback("PLAY", data)
             elif data.startswith(b"="):
-                callback("=", data[1:])
+                callback("JOIN", data[1:])
             elif data.startswith(b"+"):
                 tag = data[1:3]
                 tags.add(tag)
                 users[tag] = data[3:]
-                callback("u")
+                callback("U")
             elif data.startswith(b"-"):
                 tag = data[1:]
                 del users[tag]
                 tags.remove(tag)
                 queue.discard(tag)
                 queueFlags.pop(tag, None)
-                callback("u")
+                callback("U")
             elif data.startswith(b"?"):
                 user = data[1:3]
                 flags = data[3:]
@@ -135,13 +138,14 @@ class Client():
                     queueFlags[user] = flags
                 else:
                     queue.remove(user)
-                callback("u")
+                callback("U")
             else:
                 logger.info(data)
 
 
 if __name__ == "__main__":
-    client = Client(print)
+    from threading import Thread
+    client = Client()
     client.name = b"Peter"
     Thread(target=client.run, daemon=True).start()
     while True:

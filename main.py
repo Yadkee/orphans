@@ -27,7 +27,7 @@ class App(Client, tk.Frame):
             i.destroy()
 
     def start_idle(self):
-        def click():
+        def click(event=None):
             self.name = self.entry.get().encode()
             Thread(target=self.run, daemon=True).start()
         self.menu = "IDLE"
@@ -46,7 +46,19 @@ class App(Client, tk.Frame):
                          relwidth=.5, anchor="center")
         self.button.place(relx=.5, rely=.8, anchor="center")
 
+        self.entry.bind("<Return>", click)
+
     def start_hub(self, tagStr):
+        def click():
+            configStr = b"FLAGS"
+            queueFlags = self.queueFlags
+            try:
+                opponent = next(i for i in queueFlags
+                                if queueFlags[i] == configStr)
+            except StopIteration:
+                self.esend(b"?%s" % configStr)
+            else:
+                self.esend(b"!%s" % opponent)
         self.menu = "HUB"
         self.clear()
         self.master.minsize(600, 400)
@@ -60,7 +72,7 @@ class App(Client, tk.Frame):
         self.usersList = tk.Listbox(self)
         self.configLabel = tk.Label(self, text="CONFIG:")
         # TODO: configFrame containing all the config options
-        self.button = tk.Button(self, text="PLAY")
+        self.button = tk.Button(self, command=click, text="PLAY")
         # TODO: Redesign all the widgets and organization
 
         self.columnconfigure(0, weight=1)
@@ -78,11 +90,13 @@ class App(Client, tk.Frame):
 
     def callback(self, event, data=None):
         print(event, data)
-        if event == "=" and self.menu == "IDLE":
+        if event == "JOIN" and self.menu == "IDLE":
             tagStr = data[2:].decode() + "#" + data[:2].hex()
+            self.users[data[:2]] = data[2:]
+            self.tag = data[:2]
             self.start_hub(tagStr)
-            print("JOINED")
-        elif event == "u" and self.menu == "HUB":
+            logger.info("JOINED")
+        elif event == "U" and self.menu == "HUB" or event == "LOBBY":
             users = self.users
             tags = self.tags
             queue = self.queue
@@ -96,9 +110,11 @@ class App(Client, tk.Frame):
                 self.queueList.delete(0, "end")
                 iterable = (userAndTag(users[tag], tag) +
                             queueFlags[tag].decode()
-                            for tag in sorted(queue))
+                            for tag in sorted(queue) if tag != self.tag)
                 self.queueList.insert(0, *iterable)
             self.last = (tags.copy(), queue.copy(), queueFlags.copy())
+        elif event == "PLAY" and self.menu == "HUB":
+            logger.info("PLAYING")
         else:
             print("!", event, data)
 
