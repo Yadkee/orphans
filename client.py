@@ -11,10 +11,8 @@ logger.setLevel(DEBUG)
 
 
 class Client():
-    def __init__(self, join):
+    def __init__(self):
         self.name = ""
-        self.join = join
-        self.update = lambda: None
         # Read serverAdress file
         with open("serverAddress", "rb") as f:
             args = f.read().split(b"\n\r")
@@ -90,6 +88,7 @@ class Client():
         users = self.users
         queue = self.queue
         queueFlags = self.queueFlags
+        callback = self.callback
 
         while True:
             data = read(1)
@@ -111,23 +110,23 @@ class Client():
                     for i in rQueue:
                         queue.add(i[:2])
                         queueFlags[i[:2]] = i[2:]
-                self.update()
+                callback("u")
             elif data == b"PLAY":
                 self.playing = True
             elif data.startswith(b"="):
-                self.join(data[1:])
+                callback("=", data[1:])
             elif data.startswith(b"+"):
                 tag = data[1:3]
                 tags.add(tag)
                 users[tag] = data[3:]
-                self.update()
+                callback("u")
             elif data.startswith(b"-"):
                 tag = data[1:]
                 del users[tag]
                 tags.remove(tag)
                 queue.discard(tag)
                 queueFlags.pop(tag, None)
-                self.update()
+                callback("u")
             elif data.startswith(b"?"):
                 user = data[1:3]
                 flags = data[3:]
@@ -136,7 +135,7 @@ class Client():
                     queueFlags[user] = flags
                 else:
                     queue.remove(user)
-                self.update()
+                callback("u")
             else:
                 logger.info(data)
 
