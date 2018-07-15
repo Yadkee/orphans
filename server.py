@@ -5,6 +5,7 @@ from threading import Thread
 from time import (time, sleep)
 from collections import deque
 from itertools import chain
+from random import choice
 
 from logging import (basicConfig, getLogger, DEBUG)
 basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -35,7 +36,8 @@ def userToStr(user):
 
 
 class Server():
-    def __init__(self, name, ip, port):
+    def __init__(self, name, ip, port, slow):
+        self.slow = slow
         self.address = (ip, port)
         self.publicKey, self.privateCipher = rsa()
         # Create serverAddress file
@@ -182,6 +184,7 @@ class Server():
         actions = self.actions
         lobby = self.lobby
         games = self.games
+        slow = self.slow
 
         while True:
             try:
@@ -196,10 +199,13 @@ class Server():
                             (address, amount, self.maxUsers))
             else:
                 actions.append((handle, socket, address))
+            if slow:
+                sleep(slow)
 
     def actions_loop(self):
         # Locals
         actions = self.actions
+        slow = self.slow
 
         while True:
             t0 = time()
@@ -213,6 +219,8 @@ class Server():
                     logger.warn("!!!")
                 if d > 1000:
                     logger.error("BE CAREFUL\n!!!")
+            if slow:
+                sleep(slow)
 
     def lobby_loop(self):
         def admin_loop(address):
@@ -252,6 +260,7 @@ class Server():
         gamesFlags = self.gamesFlags
         leave_lobby = self.leave_lobby
         notify_lobby = self.notify_lobby
+        slow = self.slow
 
         while True:
             for address in lobby.copy():
@@ -299,9 +308,11 @@ class Server():
                         pair = (opponent, address)
                         games.add(pair)
                         gamesFlags[pair] = flags
-                        message = b"PLAY"
+                        message = b"!%s" % flags
                         esend(sockets[address], message, passwords[address])
                         esend(sockets[opponent], message, passwords[opponent])
+                        starter = choice([address, opponent])
+                        esend(sockets[starter], b"START", passwords[starter])
                         actions.append((leave_lobby, address))
                         actions.append((leave_lobby, opponent))
                         logger.debug("%s is playing against %s (%s)" %
@@ -309,6 +320,8 @@ class Server():
                                       flags))
                     else:
                         logger.warn("%s -> %s" % (userStr, str(data)))
+            if slow:
+                sleep(slow)
 
     def games_loop(self):
         # Locals
@@ -318,7 +331,9 @@ class Server():
         passwords = self.passwords
         users = self.users
         leave = self.leave
+        leave_games = self.leave_games
         pinged = self.pinged
+        slow = self.slow
 
         while True:
             for pair in games.copy():
@@ -341,10 +356,14 @@ class Server():
                             pinged.discard(address)
                             logger.debug(".%s answered the ping (%d left)" %
                                          (userStr, len(pinged)))
+                        elif data == b"!":
+                            actions.append((leave_games, address))
                         else:
                             new = b":" + data  # To know know it is not server
                             esend(sockets[opponent], new, passwords[opponent])
                             logger.debug("%s -> %s" % (userStr, str(data)))
+            if slow:
+                sleep(slow)
 
     def ping_loop(self):
         # Locals
@@ -357,6 +376,7 @@ class Server():
         users = self.users
         notify_lobby = self.notify_lobby
         notify_games = self.notify_games
+        slow = self.slow
 
         while True:
             t0 = time()
@@ -380,9 +400,11 @@ class Server():
             actions.append((notify_games, b"."))
             logger.debug(".")
             sleep(max(PING_RATE - time() + t0, 5))
+            if slow:
+                sleep(slow)
 
 
 if __name__ == "__main__":
     logger.info("Start")
-    server = Server("TestServer", "localhost", 0xCE55)
+    server = Server("TestServer", "localhost", 0xCE55, slow=0)
     server.run()
