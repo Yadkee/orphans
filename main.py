@@ -4,18 +4,19 @@ from logging import (
     DEBUG)
 import tkinter as tk
 from client import Client
-import tkinter as tk
 from threading import Thread
+from tictactoe import Tictactoe
 
 logger = getLogger("Main")
 logger.setLevel(DEBUG)
+GAMES = ("TTT",)
 
 
 def userAndTag(user, tag):
     return user.decode() + "#" + tag.hex()
 
 
-class App(Client, tk.Frame):
+class App(Client, tk.Frame, Tictactoe):
     def __init__(self, master):
         Client.__init__(self)
         tk.Frame.__init__(self, master)
@@ -48,9 +49,9 @@ class App(Client, tk.Frame):
 
         self.entry.bind("<Return>", click)
 
-    def start_hub(self, tagStr):
+    def start_hub(self):
         def click():
-            configStr = b"FLAGS"
+            configStr = b"TTT"
             queueFlags = self.queueFlags
             try:
                 opponent = next(i for i in queueFlags
@@ -66,7 +67,7 @@ class App(Client, tk.Frame):
 
         self.serverLabel = tk.Label(self, text=self.server[0],
                                     font=("Times", 50, "bold"))
-        self.clientLabel = tk.Label(self, text=tagStr,
+        self.clientLabel = tk.Label(self, text=self.tagStr,
                                     font=("Times", 30), fg="gray")
         self.queueList = tk.Listbox(self)
         self.usersList = tk.Listbox(self)
@@ -89,14 +90,18 @@ class App(Client, tk.Frame):
         self.button.grid(column=1, row=2, sticky="SEW")
 
     def callback(self, event, data=None):
-        print(event, data)
+        print(",", event, data, self.menu)
         if event == "JOIN" and self.menu == "IDLE":
-            tagStr = data[2:].decode() + "#" + data[:2].hex()
+            self.tagStr = data[2:].decode() + "#" + data[:2].hex()
             self.users[data[:2]] = data[2:]
             self.tag = data[:2]
-            self.start_hub(tagStr)
+            self.start_hub()
             logger.info("JOINED")
-        elif event == "U" and self.menu == "HUB" or event == "LOBBY":
+        elif event == "LOBBY":
+            self.start_hub()
+            self.callback("U")
+            logger.info("LOBBYED")
+        elif event == "U" and self.menu == "HUB":
             users = self.users
             tags = self.tags
             queue = self.queue
@@ -115,8 +120,20 @@ class App(Client, tk.Frame):
             self.last = (tags.copy(), queue.copy(), queueFlags.copy())
         elif event == "PLAY" and self.menu == "HUB":
             logger.info("PLAYING")
+            if data == b"TTT":
+                self.start_ttt()
+            else:
+                print("!play", data)
+        elif event == "START" and self.menu in GAMES:
+            logger.info("STARTING")
+            self.starts = True
+        elif event == "MOVE" and self.menu in GAMES:
+            if self.menu == "TTT":
+                self.move_ttt(data)
+            else:
+                print("!move", data, self.menu)
         else:
-            print("!", event, data)
+            print("!", event, data, self.menu)
 
 
 def run():
