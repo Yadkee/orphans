@@ -80,7 +80,6 @@ class Client():
         self.users = dict()
         self.queue = set()
         self.queueFlags = dict()
-        self.playing = False
         # Locals
         esend = self.esend
         tags = self.tags
@@ -101,6 +100,7 @@ class Client():
                 # Receive lobby info and queue
                 tags.clear()
                 queue.clear()
+                queueFlags.clear()
                 rUsers = read(3).split(b";")
                 if rUsers != [b""]:
                     for user in rUsers:
@@ -113,9 +113,12 @@ class Client():
                         queue.add(i[:2])
                         queueFlags[i[:2]] = i[2:]
                 callback("LOBBY")
-            elif data == b"PLAY":
-                self.playing = True
-                callback("PLAY", data)
+            elif data.startswith(b"!"):
+                callback("PLAY", data[1:])
+            elif data == b"START":
+                callback("START")
+            elif data.startswith(b":"):
+                callback("MOVE", data[1:])
             elif data.startswith(b"="):
                 callback("JOIN", data[1:])
             elif data.startswith(b"+"):
@@ -140,7 +143,7 @@ class Client():
                     queue.remove(user)
                 callback("U")
             else:
-                logger.info(data)
+                logger.warn(data)
 
 
 if __name__ == "__main__":
