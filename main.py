@@ -20,6 +20,7 @@ logger.addHandler(errorHandler)
 logger.addHandler(fileHandler)
 
 DAY = 86400  # 60 * 60 * 24 // secs * mins * hours
+SPLITTABLE = str.maketrans(":.-/\\", " " * 5)
 
 
 def main():
@@ -47,22 +48,14 @@ def main():
                              reply_to_message_id=message["message_id"],
                              text="%d ms" % delay)
         if text.startswith("/"):
-            args = text[1:].split(" ")
+            args = text[1:].translate(SPLITTABLE).split(" ")
             cmd = args.pop(0)
             if cmd == "add_birthday":
-                if not args or len(args) > 3:
+                if not args or len(args) != 3:
                     text = "Usage: /add_birthday <day/month-name>"
                     bot.send_message(chat_id=chatId, text=text)
                     return
-                elif len(args) == 1:
-                    aux, name = args[0].split("-")
-                    day, month = aux.split("/")
-                elif len(args) == 2:
-                    day, month = args[0].split("/")
-                    name = args[1]
-                elif len(args) == 3:
-                    day, month, name = args
-                formatted = "%s/%s-%s" % (day, month, name)
+                formatted = "%s/%s-%s" % args
                 data[chatId]["dates"]["birthdays"].append(formatted)
                 update_json(chatId)
 
@@ -79,6 +72,11 @@ def main():
                 data[user] = load(f)
         except FileNotFoundError:
             data[user] = {"dates": {"birthdays": []}}
+    try:
+        with open("secret/lastReminder.txt") as f:
+            lastReminder = int(f.read())
+    except FileNotFoundError:
+        lastReminder = 0
     # Start loop
     bot = telegram.Bot(TOKEN)
     last = 0
@@ -90,14 +88,20 @@ def main():
                                       read_latency=latency)
         except telegram.error.TimedOut:
             logger.warn("Timed out")
-            continue
-        for event in updates:
-            last = event["update_id"]
-            print()
-            try:
-                handle(event)
-            except Exception as e:
-                logger.error(e)
+        else:
+            for event in updates:
+                last = event["update_id"]
+                print()
+                try:
+                    handle(event)
+                except Exception as e:
+                    logger.error(e)
+        if lastReminder // DAY < time() // DAY:
+            logger.info("Reminding today things")
+            lastReminder = int(time())
+            with open("secret/lastReminder.txt", "w") as f:
+                f.write(str(lastReminder))
+
 
 if __name__ == "__main__":
     with open("secret/config.json") as f:
