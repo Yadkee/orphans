@@ -7,6 +7,9 @@ from json import load, dump
 from sys import stderr
 from datetime import date
 
+IKB = telegram.InlineKeyboardButton
+IKM = telegram.InlineKeyboardMarkup
+
 FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 formatter = logging.Formatter(FORMAT)
 logger = logging.getLogger("TeleManager")
@@ -22,6 +25,9 @@ logger.addHandler(fileHandler)
 
 DAY = 86400  # 60 * 60 * 24 // secs * mins * hours
 SPLITTABLE = str.maketrans(":.-/\\", " " * 5)
+MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+          "August", "September", "October", "November", "December"]
 
 
 def main():
@@ -44,48 +50,81 @@ def main():
             return
         mText = message["text"]
         logger.info("%s said %s" % (identifier, mText))
+
         if mText == "ping":
-            delay = (time() - message["date"].timestamp()) * 1000
-            bot.send_message(chat_id=chatId,
-                             reply_to_message_id=message["message_id"],
-                             text="%d ms" % delay)
+            bot.send_message(chat_id=chatId, text="pong",
+                             reply_to_message_id=message["message_id"])
         elif mText.startswith("/"):
             args = mText[1:].translate(SPLITTABLE).split(" ")
             cmd = args.pop(0)
-            if cmd == "birthday_add":
-                if not args or len(args) < 3:
-                    text = "Usage: /birthday_add <day/month-name>"
-                    bot.send_message(chat_id=chatId, text=text)
-                    return
-                elif len(args) > 3:
-                    args[2] = " ".join(args[2:])
-                formatted = "%s/%s-%s" % tuple(args)
+            if cmd == "birthday":
+                text = "-Birthday-\nWhat do you want to do?"
+                buttons = [
+                    [IKB("Add", callback_data="add"),
+                     IKB("List", callback_data="list")]
+                ]
+                bot.send_message(chat_id=chatId, text=text,
+                                 reply_markup=IKM(buttons))
+        else:
+            reply = message["reply_to_message"]
+            if (reply and
+                    reply["text"].startswith("-Birthday add (") and
+                    "/" in reply["text"]):
+                date = reply["text"].split("(")[1].split(")")[0]
+                name = mText
+                formatted = "%s-%s" % (date, name)
                 data[chatId]["dates"]["birthdays"].append(formatted)
                 update_json(chatId)
 
                 text = "Added %s to birthdays" % formatted
                 bot.send_message(chat_id=chatId, text=text)
-            elif cmd == "birthday_list":
-                text = "\n".join(data[chatId]["dates"]["birthdays"])
-                bot.send_message(chat_id=chatId, text=text)
-        else:
-            IKB = telegram.InlineKeyboardButton
-            IKM = telegram.InlineKeyboardMarkup
-            button_list = [
-                [IKB("col1", callback_data="col1"),
-                 IKB("col2", callback_data="col2")],
-                [IKB("row2", callback_data="row2")]
-            ]
-            text = "Showing custom inline keyboard test"
-            bot.send_message(chat_id=chatId, text=text,
-                             reply_markup=IKM(button_list))
+            else:
+                bot.send_message(chat_id=chatId, text="Received")
 
     def handle_callback_query(event):
         query = event["callback_query"]
         logger.debug(query)
         qData = query["data"]
-        mText = query["message"]["text"]
-        print(qData, mText)
+        message = query["message"]
+        tag = message["text"].split("\n")[0]
+        chatId = message["chat"]["id"]
+        logger.info("Query: %s %s" % (qData, tag))
+        if tag == "-Birthday-":
+            if qData == "list":
+                text = ("-Birthday list-\n" +
+                        "\n".join(data[chatId]["dates"]["birthdays"]))
+                bot.edit_message_text(chat_id=chatId, text=text,
+                                      message_id=message["message_id"])
+            elif qData == "add":
+                text = "-Birthday add-\nChoose a month"
+                buttons = [
+                    [IKB(MONTHS[i], callback_data=str(i))
+                        for i in range(j, j + 4)]
+                    for j in range(0, 12, 4)
+                ]
+                bot.edit_message_text(chat_id=chatId, text=text,
+                                      message_id=message["message_id"],
+                                      reply_markup=IKM(buttons))
+        elif tag == "-Birthday add-":
+            month = int(qData)
+            md = MONTH_DAYS[month]
+            text = "-Birthday add (%s)-\nChoose a day" % MONTHS[month]
+            buttons = [
+                [IKB(str(i) if i <= md else ".",
+                     callback_data=str(i) if i <= md else ".")
+                    for i in range(j, j + 7)]
+                for j in range(1, 31, 7)
+            ]
+            bot.edit_message_text(chat_id=chatId, text=text,
+                                  message_id=message["message_id"],
+                                  reply_markup=IKM(buttons))
+        elif tag.startswith("-Birthday add (") and qData != ".":
+            monthName = tag.split("(")[1].split(")")[0]
+            month = MONTHS.index(monthName) + 1
+            day = int(qData)
+            text = "-Birthday add (%d/%d)-\nReply with a name" % (day, month)
+            bot.edit_message_text(chat_id=chatId, text=text,
+                                  message_id=message["message_id"])
         bot.answer_callback_query(callback_query_id=query["id"])
 
     def handle(event):
