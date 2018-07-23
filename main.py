@@ -4,7 +4,7 @@ import logging
 from collections import deque
 from time import time
 from json import load, dump
-from sys import stderr, exc_info
+from sys import stderr
 from datetime import date
 
 FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
@@ -31,7 +31,7 @@ def main():
 
     def handle(event):
         logger.debug(event)
-        if "edited_message" in event:
+        if event["edited_message"]:
             text = "I do not support edited messages"
             chatId = event["edited_message"]["chat"]["id"]
             bot.send_message(chat_id=chatId, text=text)
@@ -49,7 +49,7 @@ def main():
             logger.info("%s was not in users so was ignored" % identifier)
             return
         mtext = message["text"]
-        logger.info("%s said %s" % (identifier, text))
+        logger.info("%s said %s" % (identifier, mtext))
         if mtext == "ping":
             delay = (time() - message["date"].timestamp()) * 1000
             bot.send_message(chat_id=chatId,
@@ -74,12 +74,6 @@ def main():
             elif cmd == "birthday_list":
                 text = "\n".join(data[chatId]["dates"]["birthdays"])
                 bot.send_message(chat_id=chatId, text=text)
-            elif cmd == "sleep_add":
-                if not args or len(args) != 4:
-                    text = "Usage: /sleep_add HH:MM-HH:MM"
-                    bot.send_message(chat_id=chatId, text=text)
-                    return
-                # Not implemented yet
     logger.info("running main")
     # Load data
     data = dict()
@@ -113,9 +107,7 @@ def main():
                 try:
                     handle(event)
                 except Exception as e:
-                    exc_type, _, exc_tb = exc_info()
-                    logger.error("Line %d: (%s)%s" %
-                                 (exc_tb.tb_lineno, exc_type, e))
+                    logger.exception(e)
         if lastReminder // DAY < time() // DAY:
             def _date(s):
                 args = [int(i) for i in s.split("/")]
