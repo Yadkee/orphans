@@ -29,14 +29,8 @@ def main():
         with open("secret/%d.json" % user, "w") as f:
             dump(data[user], f)
 
-    def handle(event):
+    def handle_message(event):
         logger.debug(event)
-        if event["edited_message"]:
-            text = "I do not support edited messages"
-            chatId = event["edited_message"]["chat"]["id"]
-            bot.send_message(chat_id=chatId, text=text)
-            logger.info("%d edited a message I refuse to read" % chatId)
-            return
         message = event["message"]
         chat = message["chat"]
         chatId = chat["id"]
@@ -48,15 +42,15 @@ def main():
             bot.send_message(chat_id=chatId, text=text)
             logger.info("%s was not in users so was ignored" % identifier)
             return
-        mtext = message["text"]
-        logger.info("%s said %s" % (identifier, mtext))
-        if mtext == "ping":
+        mText = message["text"]
+        logger.info("%s said %s" % (identifier, mText))
+        if mText == "ping":
             delay = (time() - message["date"].timestamp()) * 1000
             bot.send_message(chat_id=chatId,
                              reply_to_message_id=message["message_id"],
                              text="%d ms" % delay)
-        if mtext.startswith("/"):
-            args = mtext[1:].translate(SPLITTABLE).split(" ")
+        elif mText.startswith("/"):
+            args = mText[1:].translate(SPLITTABLE).split(" ")
             cmd = args.pop(0)
             if cmd == "birthday_add":
                 if not args or len(args) < 3:
@@ -74,8 +68,42 @@ def main():
             elif cmd == "birthday_list":
                 text = "\n".join(data[chatId]["dates"]["birthdays"])
                 bot.send_message(chat_id=chatId, text=text)
-    logger.info("running main")
+        else:
+            IKB = telegram.InlineKeyboardButton
+            IKM = telegram.InlineKeyboardMarkup
+            button_list = [
+                [IKB("col1", callback_data="col1"),
+                 IKB("col2", callback_data="col2")],
+                [IKB("row2", callback_data="row2")]
+            ]
+            text = "Showing custom inline keyboard test"
+            bot.send_message(chat_id=chatId, text=text,
+                             reply_markup=IKM(button_list))
+
+    def handle_callback_query(event):
+        query = event["callback_query"]
+        logger.debug(query)
+        qData = query["data"]
+        mText = query["message"]["text"]
+        print(qData, mText)
+        bot.answer_callback_query(callback_query_id=query["id"])
+
+    def handle(event):
+        if event["message"]:
+            handle_message(event)
+        elif event["callback_query"]:
+            handle_callback_query(event)
+        else:
+            logger.warn("Received an unwanted update type, ignoring it")
+
     # Load data
+    logger.info("Started collecting data")
+    with open("secret/config.json") as f:
+        CONFIG = load(f)
+    TOKEN = CONFIG["TOKEN"]
+    ADMIN = CONFIG["ADMIN"]
+    USERS = CONFIG["USERS"]
+
     data = dict()
     for user in USERS:
         try:
@@ -92,11 +120,11 @@ def main():
     bot = telegram.Bot(TOKEN)
     last = 0
     latency = 2  # TODO: Change latency based on time & activity
-    logger.info("Starting loop")
+    logger.info("Started loop")
     while True:
+        # Update poller
         try:
             updates = bot.get_updates(offset=last + 1, timeout=300,
-                                      allowedUpdates=["message"],
                                       read_latency=latency)
         except telegram.error.TimedOut:
             logger.warn("Timed out")
@@ -108,6 +136,7 @@ def main():
                     handle(event)
                 except Exception as e:
                     logger.exception(e)
+        # Reminder
         if lastReminder // DAY < time() // DAY:
             def _date(s):
                 args = [int(i) for i in s.split("/")]
@@ -133,10 +162,4 @@ def main():
 
 
 if __name__ == "__main__":
-    logger.info("Started")
-    with open("secret/config.json") as f:
-        CONFIG = load(f)
-    TOKEN = CONFIG["TOKEN"]
-    ADMIN = CONFIG["ADMIN"]
-    USERS = CONFIG["USERS"]
     main()
