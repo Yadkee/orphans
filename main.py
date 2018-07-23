@@ -31,29 +31,36 @@ def main():
 
     def handle(event):
         logger.debug(event)
+        if "edited_message" in event:
+            text = "I do not support edited messages"
+            chatId = event["edited_message"]["chat"]["id"]
+            bot.send_message(chat_id=chatId, text=text)
+            logger.info("%d edited a message I refuse to read" % chatId)
+            return
         message = event["message"]
-        if message is None:
-            message = event["edited_message"]
-        text = message["text"]
         chat = message["chat"]
         chatId = chat["id"]
-        if chatId not in USERS:
-            logger.info("%d was not in users so was ignored" % chatId)
-            return
-
+        chatName = chat["first_name"]
         isAdmin = "*" if chatId == ADMIN else ""
-        logger.info("%s%s said %s" % (isAdmin, chat["first_name"], text))
-        if text == "ping":
+        identifier = "%s%s (%d)" % (isAdmin, chatName, chatId)
+        if chatId not in USERS:
+            text = "You are not a trusted user!\nContact the person running me"
+            bot.send_message(chat_id=chatId, text=text)
+            logger.info("%s was not in users so was ignored" % identifier)
+            return
+        mtext = message["text"]
+        logger.info("%s said %s" % (identifier, text))
+        if mtext == "ping":
             delay = (time() - message["date"].timestamp()) * 1000
             bot.send_message(chat_id=chatId,
                              reply_to_message_id=message["message_id"],
                              text="%d ms" % delay)
-        if text.startswith("/"):
-            args = text[1:].translate(SPLITTABLE).split(" ")
+        if mtext.startswith("/"):
+            args = mtext[1:].translate(SPLITTABLE).split(" ")
             cmd = args.pop(0)
-            if cmd == "add_birthday":
+            if cmd == "birthday_add":
                 if not args or len(args) < 3:
-                    text = "Usage: /add_birthday <day/month-name>"
+                    text = "Usage: /birthday_add <day/month-name>"
                     bot.send_message(chat_id=chatId, text=text)
                     return
                 elif len(args) > 3:
@@ -64,9 +71,15 @@ def main():
 
                 text = "Added %s to birthdays" % formatted
                 bot.send_message(chat_id=chatId, text=text)
-            elif cmd == "list_birthday":
+            elif cmd == "birthday_list":
                 text = "\n".join(data[chatId]["dates"]["birthdays"])
                 bot.send_message(chat_id=chatId, text=text)
+            elif cmd == "sleep_add":
+                if not args or len(args) != 4:
+                    text = "Usage: /sleep_add HH:MM-HH:MM"
+                    bot.send_message(chat_id=chatId, text=text)
+                    return
+                # Not implemented yet
     logger.info("running main")
     # Load data
     data = dict()
@@ -121,7 +134,6 @@ def main():
                     if _date(day) == today:
                         text = "Today is %s's birthday" % name
                         bot.send_message(chat_id=user, text=text)
-                    print(_date(day), today)
             lastReminder = int(time())
             with open("secret/lastReminder.txt", "w") as f:
                 f.write(str(lastReminder))
