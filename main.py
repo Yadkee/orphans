@@ -25,7 +25,7 @@ logger.addHandler(fileHandler)
 
 DAY = 86400  # 60 * 60 * 24 // secs * mins * hours
 SPLITTABLE = str.maketrans(":.-/\\", " " * 5)
-MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December"]
 
@@ -49,6 +49,9 @@ def main():
             logger.info("%s was not in users so was ignored" % identifier)
             return
         mText = message["text"]
+        if mText is None:
+            logger.warn("Received message is not text")
+            return
         logger.info("%s said %s" % (identifier, mText))
 
         if mText == "ping":
@@ -175,8 +178,8 @@ def main():
                     handle(event)
                 except Exception as e:
                     logger.exception(e)
-        # Reminder
-        if lastReminder // DAY < time() // DAY:
+        # Reminder (18k seconds [5h] less let this happen at 6 am on utc +1)
+        if lastReminder // DAY < (time() - 18000) // DAY:
             def _date(s):
                 args = [int(i) for i in s.split("/")]
                 if len(args) == 2:  # 1/1 to 1/1/{user year}
