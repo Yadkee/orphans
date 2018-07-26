@@ -113,10 +113,10 @@ def main():
             logger.warn("Received message is not text")
             return
         logger.info("%s said %s" % (identifier, mText))
+        kw = {"chat_id": chatId, "message_id": message["message_id"]}
 
         if mText == "ping":
-            bot.send_message(chat_id=chatId, text="pong",
-                             reply_to_message_id=message["message_id"])
+            bot.send_message(**kw, text="pong")
         elif mText.startswith("/"):
             args = mText[1:].translate(SPLITTABLE).split(" ")
             cmd = args.pop(0)
@@ -125,16 +125,16 @@ def main():
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=MENU_BIRTHDAY)
         elif data[chatId]["waiting"]:
-            tags = data[chatId]["waiting"]
-            if tags[0:2] == ["B", "C"]:
-                date = int(tags[3]) * 50 + int(tags[4])
-                try:
-                    data[chatId]["birthdays"][date].append(mText)
-                except KeyError:
-                    data[chatId]["birthdays"][date] = [mText]
-                update_json(chatId)
-                text = "Added %s's birthday" % mText
-                bot.send_message(chat_id=chatId, text=text)
+            waiting = data[chatId]["waiting"]
+            tags = waiting.split("/")
+            if waiting.startswith("B/C/"):
+                text = ("So you want to add %s's birthday on %s?" %
+                        (mText, "/".join(tags[3:1:-1])))
+                _tags = "B/N/%s/%s/" % (waiting[4:], mText)
+                markup = make_menu([[("YES", _tags + "Y"),
+                                     ("NO", _tags + "N")]])
+                bot.send_message(chat_id=chatId, text=text,
+                                 reply_markup=markup)
             data[chatId]["waiting"] = 0
 
     def handle_callback_query(event):
@@ -142,10 +142,9 @@ def main():
         logger.debug(query)
         qData = query["data"]
         message = query["message"]
-        messageId = message["message_id"] 
         chatId = message["chat"]["id"]
         logger.info("%s -> %s" % (chatId, qData))
-        kw = {"chat_id": chatId, "message_id": messageId}
+        kw = {"chat_id": chatId, "message_id": message["message_id"]}
         if qData.startswith(">"):
             menu(bot, kw, qData)
             return
@@ -165,7 +164,25 @@ def main():
             elif option == "C":
                 text = "Last but not least, what is his/her name?"
                 bot.edit_message_text(**kw, text=text)
-                data[chatId]["waiting"] = tags
+                tags.pop(2)  # We will not use the year
+                data[chatId]["waiting"] = "/".join(tags)
+            elif option == "N":
+                if tags[5] == "Y":
+                    month, day, name = int(tags[2]), int(tags[3]), tags[4]
+                    _date = str(month * 50 + day)
+                    try:
+                        data[chatId]["birthdays"][_date].append(name)
+                    except KeyError:
+                        data[chatId]["birthdays"][_date] = [name]
+                    update_json(chatId)
+                    text = "Added %s's birthday on %d/%d" % (name, day, month)
+                    bot.edit_message_text(**kw, text=text)
+                else:
+                    text = "When do you want to add it?"
+                    today = date.today()
+                    args = ("B/C", today.year, today.month)
+                    markup = make_menu_calendar(*args)
+                    bot.edit_message_text(**kw, text=text, reply_markup=markup)
 
         bot.answer_callback_query(callback_query_id=query["id"])
 
@@ -222,7 +239,7 @@ def main():
             _today = date.today()
             logger.info("Started reminding today things")
             # Birthdays
-            today = _today.month * 50 + _today.day
+            today = str(_today.month * 50 + _today.day)
             for user in USERS:
                 try:
                     birthdays = data[user]["birthdays"][today]
