@@ -25,9 +25,69 @@ logger.addHandler(fileHandler)
 
 DAY = 86400  # 60 * 60 * 24 // secs * mins * hours
 SPLITTABLE = str.maketrans(":.-/\\", " " * 5)
-MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-MONTHS = ["January", "February", "March", "April", "May", "June", "July",
-          "August", "September", "October", "November", "December"]
+MONTH_DAYS = [31, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+MONTHS = ["December", "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"]
+BLANK = "\u00A0"
+
+
+def make_menu(l):
+    return IKM([[IKB(a, callback_data=b) for a, b in row] for row in l])
+MENU_BIRTHDAY = make_menu([[("ADD", "B/A"), ("LIST", "B/L")]])
+
+
+def make_menu_calendar(tag, year, month):
+    iDay = -date(year, month, 1).weekday() + 1
+    tag = "%s/%d/%d/" % (tag, year, month)
+    md = MONTH_DAYS[month]
+    days = [[(str(i) if 0 < i <= md else ".",
+              tag + str(i) if 0 < i <= md else ".")
+            for i in range(j, j + 7)] for j in range(iDay, 31, 7)]
+    _tag = ">" + tag
+    days.append([("-", _tag + "-m"), (MONTHS[month], _tag + ".m"),
+                 ("+", _tag + "+m")])
+    days.append([("-", _tag + "-y"), (str(year), _tag + ".y"),
+                 ("+", _tag + "+y")])
+    return make_menu(days)
+
+
+def menu(bot, kw, _qData):
+    qData = _qData[1:]
+    tags = qData.split("/")
+    if qData.startswith("B/C/"):
+        sign, option = tags[4]
+        year = int(tags[2])
+        month = int(tags[3])
+        if sign == ".":
+            if option == "m":
+                tag = ">B/M/%d/%%d" % year
+                l = [[(MONTHS[i], tag % i) for i in range(j, j + 4)]
+                     for j in range(1, 12, 4)]
+                markup = make_menu(l)
+            else:
+                tag = ">B/Y/%%d/%d" % month
+                l = [[(str(i), tag % i) for i in range(j, j + 25, 5)]
+                     for j in range(1900, 2020, 25)]
+                markup = make_menu(l)
+        else:
+            if option == "m":
+                if month == 12 and sign == "+":
+                    month = 1
+                    year += 1
+                elif month == 1 and sign == "-":
+                    month = 12
+                    year -= 1
+                else:
+                    month += 1 if sign == "+" else -1
+            else:
+                year += 1 if sign == "+" else -1
+            markup = make_menu_calendar("B/C", year, month)
+        bot.edit_message_reply_markup(**kw, reply_markup=markup)
+    elif qData.startswith(("B/M/", "B/Y/")):
+        year = int(tags[2])
+        month = int(tags[3])
+        markup = make_menu_calendar("B/C", year, month)
+        bot.edit_message_reply_markup(**kw, reply_markup=markup)
 
 
 def main():
@@ -61,73 +121,52 @@ def main():
             args = mText[1:].translate(SPLITTABLE).split(" ")
             cmd = args.pop(0)
             if cmd == "birthday":
-                text = "-Birthday-\nWhat do you want to do?"
-                buttons = [
-                    [IKB("Add", callback_data="add"),
-                     IKB("List", callback_data="list")]
-                ]
+                text = "What do you want to do related to birthdays?"
                 bot.send_message(chat_id=chatId, text=text,
-                                 reply_markup=IKM(buttons))
-        else:
-            reply = message["reply_to_message"]
-            if (reply and
-                    reply["text"].startswith("-Birthday add (") and
-                    "/" in reply["text"]):
-                date = reply["text"].split("(")[1].split(")")[0]
-                name = mText
-                formatted = "%s-%s" % (date, name)
-                data[chatId]["dates"]["birthdays"].append(formatted)
+                                 reply_markup=MENU_BIRTHDAY)
+        elif data[chatId]["waiting"]:
+            tags = data[chatId]["waiting"]
+            if tags[0:2] == ["B", "C"]:
+                date = int(tags[3]) * 50 + int(tags[4])
+                try:
+                    data[chatId]["birthdays"][date].append(mText)
+                except KeyError:
+                    data[chatId]["birthdays"][date] = [mText]
                 update_json(chatId)
-
-                text = "Added %s to birthdays" % formatted
+                text = "Added %s's birthday" % mText
                 bot.send_message(chat_id=chatId, text=text)
-            else:
-                bot.send_message(chat_id=chatId, text="Received")
+            data[chatId]["waiting"] = 0
 
     def handle_callback_query(event):
         query = event["callback_query"]
         logger.debug(query)
         qData = query["data"]
         message = query["message"]
-        tag = message["text"].split("\n")[0]
+        messageId = message["message_id"] 
         chatId = message["chat"]["id"]
-        logger.info("Query: %s %s" % (qData, tag))
-        if tag == "-Birthday-":
-            if qData == "list":
-                text = ("-Birthday list-\n" +
+        logger.info("%s -> %s" % (chatId, qData))
+        kw = {"chat_id": chatId, "message_id": messageId}
+        if qData.startswith(">"):
+            menu(bot, kw, qData)
+            return
+        tags = qData.split("/")
+        if tags[0] == "B":
+            option = tags[1]
+            if option == "A":
+                text = "When do you want to add it?"
+                today = date.today()
+                args = ("B/C", today.year, today.month)
+                bot.edit_message_text(**kw, text=text,
+                                      reply_markup=make_menu_calendar(*args))
+            elif option == "L":
+                text = ("Birthday list:\n" +
                         "\n".join(data[chatId]["dates"]["birthdays"]))
-                bot.edit_message_text(chat_id=chatId, text=text,
-                                      message_id=message["message_id"])
-            elif qData == "add":
-                text = "-Birthday add-\nChoose a month"
-                buttons = [
-                    [IKB(MONTHS[i], callback_data=str(i))
-                        for i in range(j, j + 4)]
-                    for j in range(0, 12, 4)
-                ]
-                bot.edit_message_text(chat_id=chatId, text=text,
-                                      message_id=message["message_id"],
-                                      reply_markup=IKM(buttons))
-        elif tag == "-Birthday add-":
-            month = int(qData)
-            md = MONTH_DAYS[month]
-            text = "-Birthday add (%s)-\nChoose a day" % MONTHS[month]
-            buttons = [
-                [IKB(str(i) if i <= md else ".",
-                     callback_data=str(i) if i <= md else ".")
-                    for i in range(j, j + 7)]
-                for j in range(1, 31, 7)
-            ]
-            bot.edit_message_text(chat_id=chatId, text=text,
-                                  message_id=message["message_id"],
-                                  reply_markup=IKM(buttons))
-        elif tag.startswith("-Birthday add (") and qData != ".":
-            monthName = tag.split("(")[1].split(")")[0]
-            month = MONTHS.index(monthName) + 1
-            day = int(qData)
-            text = "-Birthday add (%d/%d)-\nReply with a name" % (day, month)
-            bot.edit_message_text(chat_id=chatId, text=text,
-                                  message_id=message["message_id"])
+                bot.edit_message_text(**kw, text=text)
+            elif option == "C":
+                text = "Last but not least, what is his/her name?"
+                bot.edit_message_text(**kw, text=text)
+                data[chatId]["waiting"] = tags
+
         bot.answer_callback_query(callback_query_id=query["id"])
 
     def handle(event):
@@ -152,7 +191,7 @@ def main():
             with open("secret/%d.json" % user) as f:
                 data[user] = load(f)
         except FileNotFoundError:
-            data[user] = {"dates": {"birthdays": []}}
+            data[user] = {"birthdays": {}, "waiting": 0}
     try:
         with open("secret/lastReminder.txt") as f:
             lastReminder = int(f.read())
@@ -161,7 +200,7 @@ def main():
     # Start loop
     bot = telegram.Bot(TOKEN)
     last = 0
-    latency = 2  # TODO: Change latency based on time & activity
+    latency = 1  # TODO: Change latency based on time & activity
     logger.info("Started loop")
     while True:
         # Update poller
@@ -180,28 +219,22 @@ def main():
                     logger.exception(e)
         # Reminder (18k seconds [5h] less let this happen at 6 am on utc +1)
         if lastReminder // DAY < (time() - 18000) // DAY:
-            def _date(s):
-                args = [int(i) for i in s.split("/")]
-                if len(args) == 2:  # 1/1 to 1/1/{user year}
-                    args.append(year)
-                if args[2] < 1000:  # 1/1/18 to 1/1/2018
-                    args[2] += 2000
-                return date(*args[::-1])
-            today = date.today()
-            year = today.year
+            _today = date.today()
             logger.info("Started reminding today things")
             # Birthdays
+            today = _today.month * 50 + _today.day
             for user in USERS:
-                for birthday in data[user]["dates"]["birthdays"]:
-                    day, name = birthday.split("-")
-                    if _date(day) == today:
-                        text = "Today is %s's birthday" % name
-                        bot.send_message(chat_id=user, text=text)
+                try:
+                    birthdays = data[user]["birthdays"][today]
+                except KeyError:
+                    continue
+                for name in birthdays:
+                    text = "Today is %s's birthday" % name
+                    bot.send_message(chat_id=user, text=text)
             lastReminder = int(time())
             with open("secret/lastReminder.txt", "w") as f:
                 f.write(str(lastReminder))
             logger.info("Finished reminding today things")
-
 
 if __name__ == "__main__":
     main()
