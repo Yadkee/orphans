@@ -6,6 +6,7 @@ from time import time
 from json import load, dump
 from sys import stderr
 from datetime import date
+from mysql.connector import connect
 
 IKB = telegram.InlineKeyboardButton
 IKM = telegram.InlineKeyboardMarkup
@@ -28,12 +29,12 @@ SPLITTABLE = str.maketrans(":.-/\\", " " * 5)
 MONTH_DAYS = [31, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 MONTHS = ["December", "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
-BLANK = "\u00A0"
 
 
 def make_menu(l):
     return IKM([[IKB(a, callback_data=b) for a, b in row] for row in l])
 MENU_BIRTHDAY = make_menu([[("ADD", "B/A"), ("LIST", "B/L")]])
+MENU_REMIND = make_menu([[("ADD", "R/A"), ("LIST", "R/L")]])
 
 
 def make_menu_calendar(tag, year, month):
@@ -91,9 +92,9 @@ def menu(bot, kw, _qData):
 
 
 def main():
-    def update_json(user):
-        with open("secret/%d.json" % user, "w") as f:
-            dump(data[user], f)
+    def update_json():
+        with open("secret/general.json", "w") as f:
+            dump(general, f)
 
     def handle_message(event):
         logger.debug(event)
@@ -124,8 +125,12 @@ def main():
                 text = "What do you want to do related to birthdays?"
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=MENU_BIRTHDAY)
-        elif data[chatId]["waiting"]:
-            waiting = data[chatId]["waiting"]
+            elif cmd == "remind":
+                text = "What do you want to do related to reminders?"
+                bot.send_message(chat_id=chatId, text=text,
+                                 reply_markup=MENU_REMIND)
+        elif chatId in general["waiting"]:
+            waiting = general["waiting"].pop(chatId)
             tags = waiting.split("/")
             if waiting.startswith("B/C/"):
                 text = ("So you want to add %s's birthday on %s?" %
@@ -135,7 +140,6 @@ def main():
                                      ("NO", _tags + "N")]])
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=markup)
-            data[chatId]["waiting"] = 0
 
     def handle_callback_query(event):
         query = event["callback_query"]
@@ -149,8 +153,8 @@ def main():
             menu(bot, kw, qData)
             return
         tags = qData.split("/")
-        if tags[0] == "B":
-            option = tags[1]
+        cmd, option = tags[:2]
+        if cmd == "B":
             if option == "A":
                 text = "When do you want to add it?"
                 today = date.today()
@@ -158,23 +162,19 @@ def main():
                 bot.edit_message_text(**kw, text=text,
                                       reply_markup=make_menu_calendar(*args))
             elif option == "L":
-                text = ("Birthday list:\n" +
-                        "\n".join(data[chatId]["dates"]["birthdays"]))
+                text = "Temporaly down"  # TODO: Change storage and add this
                 bot.edit_message_text(**kw, text=text)
             elif option == "C":
                 text = "Last but not least, what is his/her name?"
                 bot.edit_message_text(**kw, text=text)
                 tags.pop(2)  # We will not use the year
-                data[chatId]["waiting"] = "/".join(tags)
+                general["waiting"][chatId] = "/".join(tags)
             elif option == "N":
                 if tags[5] == "Y":
                     month, day, name = int(tags[2]), int(tags[3]), tags[4]
-                    _date = str(month * 50 + day)
-                    try:
-                        data[chatId]["birthdays"][_date].append(name)
-                    except KeyError:
-                        data[chatId]["birthdays"][_date] = [name]
-                    update_json(chatId)
+                    _date = month * 50 + day
+                    cur.execute('insert into birthday values ('
+                                '%d, %d, "%s");' % (chatId, _date, name))
                     text = "Added %s's birthday on %d/%d" % (name, day, month)
                     bot.edit_message_text(**kw, text=text)
                 else:
@@ -183,7 +183,13 @@ def main():
                     args = ("B/C", today.year, today.month)
                     markup = make_menu_calendar(*args)
                     bot.edit_message_text(**kw, text=text, reply_markup=markup)
-
+        elif cmd == "R":
+            if option == "A":
+                text = "When do you want to add it?"
+                bot.edit_message_text(**kw, text=text)
+            elif option == "L":
+                text = "Temporaly down"  # TODO: Change storage and add this
+                bot.edit_message_text(**kw, text=text)
         bot.answer_callback_query(callback_query_id=query["id"])
 
     def handle(event):
@@ -195,63 +201,59 @@ def main():
             logger.warn("Received an unwanted update type, ignoring it")
 
     # Load data
-    logger.info("Started collecting data")
+    logger.info("Collecting data")
     with open("secret/config.json") as f:
         CONFIG = load(f)
-    TOKEN = CONFIG["TOKEN"]
     ADMIN = CONFIG["ADMIN"]
     USERS = CONFIG["USERS"]
-
-    data = dict()
-    for user in USERS:
-        try:
-            with open("secret/%d.json" % user) as f:
-                data[user] = load(f)
-        except FileNotFoundError:
-            data[user] = {"birthdays": {}, "waiting": 0}
     try:
-        with open("secret/lastReminder.txt") as f:
-            lastReminder = int(f.read())
+        with open("secret/general.json") as f:
+            general = load(f)
     except FileNotFoundError:
-        lastReminder = 0
+        general = {"lastReminder": 0, "waiting": {}}
+    # Connect to database
+    logger.info("Connecting to database")
+    cnx = connect(**CONFIG["DB_ARGS"])
+    cnx.autocommit = True
+    cur = cnx.cursor()
+    cur.execute("use telemanager;")
     # Start loop
-    bot = telegram.Bot(TOKEN)
-    last = 0
-    latency = 1  # TODO: Change latency based on time & activity
-    logger.info("Started loop")
+    logger.info("Starting loop")
+    bot = telegram.Bot(CONFIG["TOKEN"])
+    lastUpdate = 0
+    latency = .5  # TODO: Change latency based on time & activity
     while True:
         # Update poller
         try:
-            updates = bot.get_updates(offset=last + 1, timeout=300,
+            updates = bot.get_updates(offset=lastUpdate + 1, timeout=300,
                                       read_latency=latency)
         except telegram.error.TimedOut:
             logger.warn("Timed out")
         else:
             for event in updates:
-                last = event["update_id"]
-                print()
+                lastUpdate = event["update_id"]
                 try:
                     handle(event)
                 except Exception as e:
                     logger.exception(e)
-        # Reminder (18k seconds [5h] less let this happen at 6 am on utc +1)
-        if lastReminder // DAY < (time() - 18000) // DAY:
-            _today = date.today()
-            logger.info("Started reminding today things")
-            # Birthdays
-            today = str(_today.month * 50 + _today.day)
-            for user in USERS:
-                try:
-                    birthdays = data[user]["birthdays"][today]
-                except KeyError:
-                    continue
-                for name in birthdays:
-                    text = "Today is %s's birthday" % name
-                    bot.send_message(chat_id=user, text=text)
-            lastReminder = int(time())
-            with open("secret/lastReminder.txt", "w") as f:
-                f.write(str(lastReminder))
+        _time = time()
+        # Daily Reminder
+        if general["lastReminder"] // DAY < (_time - 18000) // DAY:
+            logger.info("Reminding today things")
+            _today = date.fromtimestamp(_time)
+            logger.info("Reminding birthdays")
+            birthdayDay = _today.month * 50 + _today.day
+            cur.execute("select user, text from birthday where date=%d;" %
+                        birthdayDay)
+            for (user, name) in cur.fetchall():
+                text = "Today is %s's birthday" % name
+                bot.send_message(chat_id=user, text=text)
+            # TODO: Remind events
+            general["lastReminder"] = _time
+            update_json()
             logger.info("Finished reminding today things")
+    cur.close()
+    cnx.close()
 
 if __name__ == "__main__":
     main()
