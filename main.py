@@ -162,8 +162,13 @@ def main():
                 bot.edit_message_text(**kw, text=text,
                                       reply_markup=make_menu_calendar(*args))
             elif option == "L":
-                text = "Temporaly down"  # TODO: Change storage and add this
-                bot.edit_message_text(**kw, text=text)
+                cur.execute("select date, text from birthday where user=%d;"
+                            "ORDER BY date" % chatId)
+                text = ["Listing birthdays:"]
+                for (_date, name) in cur.fetchall():
+                    month, day = divmod(_date, 100)
+                    text.append("%d/%d %s" % (day, month, name))
+                bot.edit_message_text(**kw, text="\n".join(text))
             elif option == "C":
                 text = "Last but not least, what is his/her name?"
                 bot.edit_message_text(**kw, text=text)
@@ -172,7 +177,7 @@ def main():
             elif option == "N":
                 if tags[5] == "Y":
                     month, day, name = int(tags[2]), int(tags[3]), tags[4]
-                    _date = month * 50 + day
+                    _date = month * 100 + day
                     cur.execute('insert into birthday values ('
                                 '%d, %d, "%s");' % (chatId, _date, name))
                     text = "Added %s's birthday on %d/%d" % (name, day, month)
@@ -223,6 +228,22 @@ def main():
     lastUpdate = 0
     latency = .5  # TODO: Change latency based on time & activity
     while True:
+        _time = time()
+        # Daily Reminder
+        if general["lastReminder"] // DAY < (_time - 18000) // DAY:
+            logger.info("Reminding today things")
+            _today = date.fromtimestamp(_time)
+            logger.info("Reminding birthdays")
+            birthdayDay = _today.month * 100 + _today.day
+            cur.execute("select user, text from birthday where date=%d;" %
+                        birthdayDay)
+            for (user, name) in cur.fetchall():
+                text = "Today is %s's birthday" % name
+                bot.send_message(chat_id=user, text=text)
+            # TODO: Remind events
+            general["lastReminder"] = _time
+            update_json()
+            logger.info("Finished reminding today things")
         # Update poller
         try:
             updates = bot.get_updates(offset=lastUpdate + 1, timeout=300,
@@ -236,22 +257,6 @@ def main():
                     handle(event)
                 except Exception as e:
                     logger.exception(e)
-        _time = time()
-        # Daily Reminder
-        if general["lastReminder"] // DAY < (_time - 18000) // DAY:
-            logger.info("Reminding today things")
-            _today = date.fromtimestamp(_time)
-            logger.info("Reminding birthdays")
-            birthdayDay = _today.month * 50 + _today.day
-            cur.execute("select user, text from birthday where date=%d;" %
-                        birthdayDay)
-            for (user, name) in cur.fetchall():
-                text = "Today is %s's birthday" % name
-                bot.send_message(chat_id=user, text=text)
-            # TODO: Remind events
-            general["lastReminder"] = _time
-            update_json()
-            logger.info("Finished reminding today things")
     cur.close()
     cnx.close()
 
