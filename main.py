@@ -28,6 +28,7 @@ logger.addHandler(fileHandler)
 DAY = 60 * 60 * 24
 DAY_IN_MINUTES = 60 * 24
 SPLITTABLE = str.maketrans(":.-/\\", " " * 5)
+TABLE_INPUT = str.maketrans("/\\%", " " * 3)
 MONTH_DAYS = [31, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 MONTHS = ["December", "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
@@ -117,10 +118,13 @@ def menu(bot, kw, _qData):
                 text = "Fixed time:"
                 _time = localtime()
                 hour, minute = _time.tm_hour, _time.tm_min
+                difference = minute % 5
+                if difference >= 2:
+                    minute += 5
+                minute -= difference
             elif tags[2] == "D":
                 text = "Time from now:"
                 hour, minute = 0, 30
-                minute -= minute % 5
             markup = make_menu_hour(qData, hour, minute)
             bot.edit_message_text(**kw, text=text, reply_markup=markup)
         else:
@@ -184,6 +188,7 @@ def main():
         elif chatId in general["waiting"]:
             waiting = general["waiting"].pop(chatId)
             tags = waiting.split("/")
+            mText = mText.translate(TABLE_INPUT)
             if waiting.startswith("B/C/"):
                 text = ("So you want to add %s's birthday on %s?" %
                         (mText, "/".join(tags[3:1:-1])))
@@ -280,7 +285,7 @@ def main():
                             "order by date;" % chatId)
                 text = ["Listing reminders:"]
                 for (_date, description) in cur.fetchall():
-                    timeStr = strftime("%H:%M:%S - %d%m%Y",
+                    timeStr = strftime("%H:%M - %d/%m/%Y",
                                        localtime(_date * 60))
                     text.append("%s: %s" % (timeStr, description))
                 bot.edit_message_text(**kw, text="\n".join(text))
