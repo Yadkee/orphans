@@ -38,6 +38,7 @@ MENU_BIRTHDAY = make_menu([[("ADD", "B/A"), ("LIST", "B/L")]])
 MENU_REMIND = make_menu([[("ADD", "R/A"), ("LIST", "R/L")]])
 MENU_REMIND_ADD = make_menu([[("HOURS FROM NOW", ">R/A/D"),
                               ("FIXED HOUR", ">R/A/F")]])
+MENU_EVENT = make_menu([[("ADD", "E/A"), ("LIST", "E/L")]])
 
 
 def make_menu_calendar(tag, year, month):
@@ -73,18 +74,19 @@ def make_menu_yesno(tag):
 def menu(bot, kw, _qData):
     qData = _qData[1:]
     tags = qData.split("/")
-    if qData.startswith("B/C/"):
-        sign, option = tags[4]
+    if qData.startswith("C/"):
+        name = tags[1]
         year = int(tags[2])
         month = int(tags[3])
+        sign, option = tags[4]
         if sign == ".":
             if option == "m":
-                tag = ">B/M/%d/%%d" % year
+                tag = ">M/%s/%d/%%d" % (name, year)
                 l = [[(MONTHS[i], tag % i) for i in range(j, j + 4)]
                      for j in range(1, 12, 4)]
                 markup = make_menu(l)
             else:
-                tag = ">B/Y/%%d/%d" % month
+                tag = ">Y/%s/%d/%%d" % (name, month)
                 l = [[(str(i), tag % i) for i in range(j, j + 25, 5)]
                      for j in range(1900, 2020, 25)]
                 markup = make_menu(l)
@@ -100,12 +102,13 @@ def menu(bot, kw, _qData):
                     month += 1 if sign == "+" else -1
             else:
                 year += 1 if sign == "+" else -1
-            markup = make_menu_calendar("B/C", year, month)
+            markup = make_menu_calendar("C/" + name, year, month)
         bot.edit_message_reply_markup(**kw, reply_markup=markup)
-    elif qData.startswith(("B/M/", "B/Y/")):
+    elif qData.startswith(("M/", "Y/")):
+        name = tags[1]
         year = int(tags[2])
         month = int(tags[3])
-        markup = make_menu_calendar("B/C", year, month)
+        markup = make_menu_calendar("C/" + name, year, month)
         bot.edit_message_reply_markup(**kw, reply_markup=markup)
     elif qData.startswith("R/A/"):
         if len(tags) == 3:
@@ -165,6 +168,10 @@ def main():
                 text = "What do you want to do related to reminders?"
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=MENU_REMIND)
+            elif cmd == "event":
+                text = "What do you want to do related to events?"
+                bot.send_message(chat_id=chatId, text=text,
+                                 reply_markup=MENU_EVENT)
             elif cmd == "cancel":
                 waiting = general["waiting"].pop(chatId, False)
                 if waiting:
@@ -195,6 +202,12 @@ def main():
                 markup = make_menu_yesno("R/N/%d/%s/" % (total, mText))
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=markup)
+            elif waiting.startswith("E/C/"):
+                text = ("So you want to add an event on %s?" %
+                        "/".join(tags[4:1:-1]))
+                markup = make_menu_yesno("E/N/%s/%s/" % (waiting[4:], mText))
+                bot.send_message(chat_id=chatId, text=text,
+                                 reply_markup=markup)
             update_json()
 
     def handle_callback_query(event):
@@ -213,11 +226,22 @@ def main():
             return
         tags = qData.split("/")
         cmd, option = tags[:2]
-        if cmd == "B":
+        if cmd == "C":
+            tags.insert(0, tags.pop(1))
+            if option == "B":
+                text = "Last but not least, what is his/her name?"
+                bot.edit_message_text(**kw, text=text)
+                tags.pop(2)  # We will not use the year
+                general["waiting"][chatId] = "/".join(tags)
+            elif option == "E":
+                text = "Last but not least, describe your event"
+                bot.edit_message_text(**kw, text=text)
+                general["waiting"][chatId] = "/".join(tags)
+        elif cmd == "B":
             if option == "A":
                 text = "When do you want to add it?"
                 today = date.today()
-                args = ("B/C", today.year, today.month)
+                args = ("C/B", today.year, today.month)
                 bot.edit_message_text(**kw, text=text,
                                       reply_markup=make_menu_calendar(*args))
             elif option == "L":
@@ -228,17 +252,12 @@ def main():
                     month, day = divmod(_date, 100)
                     text.append("%d/%d %s" % (day, month, name))
                 bot.edit_message_text(**kw, text="\n".join(text))
-            elif option == "C":
-                text = "Last but not least, what is his/her name?"
-                bot.edit_message_text(**kw, text=text)
-                tags.pop(2)  # We will not use the year
-                general["waiting"][chatId] = "/".join(tags)
             elif option == "N":
                 if tags[5] == "Y":
                     month, day, name = int(tags[2]), int(tags[3]), tags[4]
                     _date = month * 100 + day
                     cur.execute('insert into birthday values ('
-                                '%d, %d, "%s");' % (chatId, _date, name))
+                                '%d, %d, "%s");' % (chatId, _date, name[:32]))
                     text = "Added %s's birthday on %d/%d" % (name, day, month)
                     bot.edit_message_text(**kw, text=text)
                 else:
@@ -266,14 +285,42 @@ def main():
                 bot.edit_message_text(**kw, text="\n".join(text))
             elif option == "N":
                 if tags[4] == "Y":
-                    total, name = int(tags[2]), tags[3]
+                    total, description = int(tags[2]), tags[3]
                     _date = (time() - 30) // 60 + total
                     cur.execute('insert into reminder values ('
-                                '%d, %d, "%s");' % (chatId, _date, name))
+                                '%d, %d, "%s");' % (chatId, _date,
+                                                    description[:140]))
                     text = "Added a reminder in %02d:%02d" % divmod(total, 60)
                     bot.edit_message_text(**kw, text=text)
                 else:
                     event["callback_query"].data = "R/A"
+                    handle_callback_query(event)
+        elif cmd == "E":
+            if option == "A":
+                text = "When do you want to add it?"
+                today = date.today()
+                args = ("C/E", today.year, today.month)
+                bot.edit_message_text(**kw, text=text,
+                                      reply_markup=make_menu_calendar(*args))
+            elif option == "L":
+                cur.execute("select date, text from event where user=%d "
+                            "order by date;" % chatId)
+                text = ["Listing events:"]
+                for (_date, description) in cur.fetchall():
+                    text.append("%s: %s" % (_date, description))
+                bot.edit_message_text(**kw, text="\n".join(text))
+            elif option == "N":
+                if tags[6] == "Y":
+                    _date = "%04d-%02d-%02d" % tuple(map(int, tags[2:5]))
+                    description = tags[5]
+                    cur.execute('insert into event values ('
+                                '%d, "%s", "%s");' % (chatId, _date,
+                                                      description[:140]))
+                    text = ("Added an event at %02d/%02d/%04d" %
+                            tuple(map(int, tags[4:1:-1])))
+                    bot.edit_message_text(**kw, text=text)
+                else:
+                    event["callback_query"].data = "E/A"
                     handle_callback_query(event)
 
     def handle(event):
@@ -312,16 +359,25 @@ def main():
         day = _time // DAY
         # Daily Reminder
         if _localtime.tm_hour >= 6 and general["lastReminder"] < day:
-            logger.info("Reminding today things")
-            _today = date.fromtimestamp(_time)
+            # Birthdays
             logger.info("Reminding birthdays")
-            birthdayDay = _today.month * 100 + _today.day
+            birthdayDay = _localtime.tm_month * 100 + _localtime.tm_day
             cur.execute("select user, text from birthday where date=%d;" %
                         birthdayDay)
             for (user, name) in cur.fetchall():
                 text = "Today is %s's birthday" % name
                 bot.send_message(chat_id=user, text=text)
-            # TODO: Remind events
+            # Events
+            logger.info("Reminding events")
+            eventDay = "%04d-%02d-%02d" % (_localtime.tm_year,
+                                           _localtime.tm_month,
+                                           _localtime.tm_day)
+            cur.execute('select user, text from event where date="%d";' %
+                        eventDay)
+            for (user, description) in cur.fetchall():
+                text = "Today you have to do: %s" % description
+                bot.send_message(chat_id=user, text=text)
+            # Update lastReminder
             general["lastReminder"] = day
             update_json()
             logger.info("Finished reminding today things")
@@ -353,4 +409,7 @@ def main():
     cnx.close()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.exception(e)
