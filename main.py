@@ -165,6 +165,14 @@ def main():
                 text = "What do you want to do related to reminders?"
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=MENU_REMIND)
+            elif cmd == "cancel":
+                waiting = general["waiting"].pop(chatId, False)
+                if waiting:
+                    text = "%s has been canceled" % waiting
+                    update_json()
+                else:
+                    text = "No active command to cancel"
+                bot.send_message(chat_id=chatId, text=text)
         elif chatId in general["waiting"]:
             waiting = general["waiting"].pop(chatId)
             tags = waiting.split("/")
@@ -174,7 +182,7 @@ def main():
                 markup = make_menu_yesno("B/N/%s/%s/" % (waiting[4:], mText))
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=markup)
-            if waiting.startswith("R/A/"):
+            elif waiting.startswith("R/A/"):
                 total = int(tags[3]) * 60 + int(tags[4])
                 if tags[2] == "F":
                     _time = localtime()
@@ -187,6 +195,7 @@ def main():
                 markup = make_menu_yesno("R/N/%d/%s/" % (total, mText))
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=markup)
+            update_json()
 
     def handle_callback_query(event):
         query = event["callback_query"]
