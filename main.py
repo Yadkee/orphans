@@ -2,7 +2,7 @@
 import telegram
 import logging
 from collections import deque
-from time import time
+from time import time, localtime
 from json import load, dump
 from sys import stderr
 from datetime import date
@@ -24,7 +24,8 @@ fileHandler.setLevel(logging.DEBUG)
 logger.addHandler(errorHandler)
 logger.addHandler(fileHandler)
 
-DAY = 86400  # 60 * 60 * 24 // secs * mins * hours
+DAY = 60 * 60 * 24
+DAY_IN_MINUTES = 60 * 24
 SPLITTABLE = str.maketrans(":.-/\\", " " * 5)
 MONTH_DAYS = [31, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 MONTHS = ["December", "January", "February", "March", "April", "May", "June",
@@ -35,14 +36,16 @@ def make_menu(l):
     return IKM([[IKB(a, callback_data=b) for a, b in row] for row in l])
 MENU_BIRTHDAY = make_menu([[("ADD", "B/A"), ("LIST", "B/L")]])
 MENU_REMIND = make_menu([[("ADD", "R/A"), ("LIST", "R/L")]])
+MENU_REMIND_ADD = make_menu([[("HOURS FROM NOW", ">R/A/D"),
+                              ("FIXED HOUR", ">R/A/F")]])
 
 
 def make_menu_calendar(tag, year, month):
     iDay = -date(year, month, 1).weekday() + 1
     tag = "%s/%d/%d/" % (tag, year, month)
     md = MONTH_DAYS[month]
-    days = [[(str(i) if 0 < i <= md else ".",
-              tag + str(i) if 0 < i <= md else ".")
+    days = [[(str(i) if 0 < i <= md else " ",
+              tag + str(i) if 0 < i <= md else " ")
             for i in range(j, j + 7)] for j in range(iDay, 31, 7)]
     _tag = ">" + tag
     days.append([("-", _tag + "-m"), (MONTHS[month], _tag + ".m"),
@@ -50,6 +53,21 @@ def make_menu_calendar(tag, year, month):
     days.append([("-", _tag + "-y"), (str(year), _tag + ".y"),
                  ("+", _tag + "+y")])
     return make_menu(days)
+
+
+def make_menu_hour(tag, hour, minute):
+    tag = "%s/%d/%d/" % (tag, hour, minute)
+    string = "%02d:%02d" % (hour, minute)
+    _tag = ">" + tag
+    return make_menu([
+        [("-", _tag + "-60"), ("1h", " "), ("+", _tag + "+60")],
+        [("-", _tag + "-30"), ("30m", " "), ("+", _tag + "+30")],
+        [("-", _tag + "-10"), ("10m", " "), ("+", _tag + "+10")],
+        [(string, " "), ("DONE", tag[:-1])]])
+
+
+def make_menu_yesno(tag):
+    return make_menu([[("YES", tag + "Y"), ("NO", tag + "N")]])
 
 
 def menu(bot, kw, _qData):
@@ -89,6 +107,24 @@ def menu(bot, kw, _qData):
         month = int(tags[3])
         markup = make_menu_calendar("B/C", year, month)
         bot.edit_message_reply_markup(**kw, reply_markup=markup)
+    elif qData.startswith("R/A/"):
+        if len(tags) == 3:
+            if tags[2] == "F":
+                text = "Fixed hour:"
+                _time = localtime()
+                hour, minute = _time.tm_hour, _time.tm_min
+                minute -= minute % 10
+            elif tags[2] == "D":
+                text = "Hours from now:"
+                hour, minute = 0, 30
+            markup = make_menu_hour(qData, hour, minute)
+            bot.edit_message_text(**kw, text=text, reply_markup=markup)
+        else:
+            hour, minute, value = map(int, tags[3:])
+            total = (hour * 60 + minute + value) % DAY_IN_MINUTES
+            hour, minute = divmod(total, 60)
+            markup = make_menu_hour("/".join(tags[:3]), hour, minute)
+            bot.edit_message_reply_markup(**kw, reply_markup=markup)
 
 
 def main():
@@ -135,9 +171,20 @@ def main():
             if waiting.startswith("B/C/"):
                 text = ("So you want to add %s's birthday on %s?" %
                         (mText, "/".join(tags[3:1:-1])))
-                _tags = "B/N/%s/%s/" % (waiting[4:], mText)
-                markup = make_menu([[("YES", _tags + "Y"),
-                                     ("NO", _tags + "N")]])
+                markup = make_menu_yesno("B/N/%s/%s/" % (waiting[4:], mText))
+                bot.send_message(chat_id=chatId, text=text,
+                                 reply_markup=markup)
+            if waiting.startswith("R/A/"):
+                total = int(tags[3]) * 60 + int(tags[4])
+                if tags[2] == "F":
+                    _time = localtime()
+                    total -= _time.tm_hour * 60 + _time.tm_min
+                    total %= DAY_IN_MINUTES
+                if total == 0:
+                    total = 24 * 60
+                text = ("So you want to set a reminder in %02d:%02d?" %
+                        divmod(total, 60))
+                markup = make_menu_yesno("R/N/%d/%s/" % (total, mText))
                 bot.send_message(chat_id=chatId, text=text,
                                  reply_markup=markup)
 
@@ -145,6 +192,8 @@ def main():
         query = event["callback_query"]
         logger.debug(query)
         qData = query["data"]
+        if qData == " ":
+            return
         message = query["message"]
         chatId = message["chat"]["id"]
         logger.info("%s -> %s" % (chatId, qData))
@@ -183,18 +232,33 @@ def main():
                     text = "Added %s's birthday on %d/%d" % (name, day, month)
                     bot.edit_message_text(**kw, text=text)
                 else:
-                    text = "When do you want to add it?"
-                    today = date.today()
-                    args = ("B/C", today.year, today.month)
-                    markup = make_menu_calendar(*args)
-                    bot.edit_message_text(**kw, text=text, reply_markup=markup)
+                    event["callback_query"].data = "B/A"
+                    handle_callback_query(event)
         elif cmd == "R":
             if option == "A":
-                text = "When do you want to add it?"
-                bot.edit_message_text(**kw, text=text)
+                if len(tags) == 2:
+                    text = "When do you want to add it?"
+                    bot.edit_message_text(**kw, text=text,
+                                          reply_markup=MENU_REMIND_ADD)
+                else:
+                    text = ("Last but not least, "
+                            "give the reminder's description")
+                    bot.edit_message_text(**kw, text=text)
+                    general["waiting"][chatId] = "/".join(tags)
             elif option == "L":
                 text = "Temporaly down"  # TODO: Change storage and add this
                 bot.edit_message_text(**kw, text=text)
+            elif option == "N":
+                if tags[4] == "Y":
+                    total, name = int(tags[2]), tags[3]
+                    _date = time() // 60 + total
+                    cur.execute('insert into reminder values ('
+                                '%d, %d, "%s");' % (chatId, _date, name))
+                    text = "Added a reminder in %02d:%02d" % divmod(total, 60)
+                    bot.edit_message_text(**kw, text=text)
+                else:
+                    event["callback_query"].data = "R/A"
+                    handle_callback_query(event)
         bot.answer_callback_query(callback_query_id=query["id"])
 
     def handle(event):
@@ -244,6 +308,17 @@ def main():
             general["lastReminder"] = _time
             update_json()
             logger.info("Finished reminding today things")
+        # Minute reminder
+        reminderDate = _time // 60
+        cur.execute("select user, text from reminder where date<=%d;" %
+                    reminderDate)
+        reminders = cur.fetchall()
+        if reminders:
+            logger.info("Reminding [%d]" % len(reminders))
+            for (user, description) in reminders:
+                text = "Remember: %s" % description
+                bot.send_message(chat_id=user, text=text)
+            cur.execute("delete from reminder where date <=%d;" % reminderDate)
         # Update poller
         try:
             updates = bot.get_updates(offset=lastUpdate + 1, timeout=300,
