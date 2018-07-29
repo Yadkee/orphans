@@ -62,7 +62,7 @@ def make_menu_hour(tag, hour, minute):
     return make_menu([
         [("-", _tag + "-60"), ("1h", " "), ("+", _tag + "+60")],
         [("-", _tag + "-30"), ("30m", " "), ("+", _tag + "+30")],
-        [("-", _tag + "-10"), ("10m", " "), ("+", _tag + "+10")],
+        [("-", _tag + "-5"), ("5m", " "), ("+", _tag + "+5")],
         [(string, " "), ("DONE", tag[:-1])]])
 
 
@@ -110,13 +110,13 @@ def menu(bot, kw, _qData):
     elif qData.startswith("R/A/"):
         if len(tags) == 3:
             if tags[2] == "F":
-                text = "Fixed hour:"
+                text = "Fixed time:"
                 _time = localtime()
                 hour, minute = _time.tm_hour, _time.tm_min
-                minute -= minute % 10
             elif tags[2] == "D":
-                text = "Hours from now:"
+                text = "Time from now:"
                 hour, minute = 0, 30
+                minute -= minute % 5
             markup = make_menu_hour(qData, hour, minute)
             bot.edit_message_text(**kw, text=text, reply_markup=markup)
         else:
@@ -191,6 +191,7 @@ def main():
     def handle_callback_query(event):
         query = event["callback_query"]
         logger.debug(query)
+        bot.answer_callback_query(callback_query_id=query["id"])
         qData = query["data"]
         if qData == " ":
             return
@@ -251,7 +252,7 @@ def main():
             elif option == "N":
                 if tags[4] == "Y":
                     total, name = int(tags[2]), tags[3]
-                    _date = time() // 60 + total
+                    _date = (time() - 30) // 60 + total
                     cur.execute('insert into reminder values ('
                                 '%d, %d, "%s");' % (chatId, _date, name))
                     text = "Added a reminder in %02d:%02d" % divmod(total, 60)
@@ -259,7 +260,6 @@ def main():
                 else:
                     event["callback_query"].data = "R/A"
                     handle_callback_query(event)
-        bot.answer_callback_query(callback_query_id=query["id"])
 
     def handle(event):
         if event["message"]:
@@ -293,8 +293,10 @@ def main():
     latency = .5  # TODO: Change latency based on time & activity
     while True:
         _time = time()
+        _localtime = localtime(_time)
+        day = _time // DAY
         # Daily Reminder
-        if general["lastReminder"] // DAY < (_time - 18000) // DAY:
+        if _localtime.tm_hour >= 6 and general["lastReminder"] < day:
             logger.info("Reminding today things")
             _today = date.fromtimestamp(_time)
             logger.info("Reminding birthdays")
@@ -305,7 +307,7 @@ def main():
                 text = "Today is %s's birthday" % name
                 bot.send_message(chat_id=user, text=text)
             # TODO: Remind events
-            general["lastReminder"] = _time
+            general["lastReminder"] = day
             update_json()
             logger.info("Finished reminding today things")
         # Minute reminder
