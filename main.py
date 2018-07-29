@@ -10,6 +10,7 @@ from mysql.connector import connect
 
 IKB = telegram.InlineKeyboardButton
 IKM = telegram.InlineKeyboardMarkup
+MD = telegram.ParseMode.MARKDOWN
 
 FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 formatter = logging.Formatter(FORMAT)
@@ -318,7 +319,9 @@ def main():
                                                       description[:140]))
                     text = ("Added an event at %02d/%02d/%04d" %
                             tuple(map(int, tags[4:1:-1])))
-                    bot.edit_message_text(**kw, text=text)
+                    if date(*map(int, tags[2:5])) < date.today():
+                        text += "\n\n`Be careful!` That day is in the past"
+                    bot.edit_message_text(**kw, text=text, parse_mode=MD)
                 else:
                     event["callback_query"].data = "E/A"
                     handle_callback_query(event)
@@ -372,10 +375,13 @@ def main():
             eventDay = "%04d-%02d-%02d" % (_localtime.tm_year,
                                            _localtime.tm_month,
                                            _localtime.tm_day)
-            cur.execute('select user, text from event where date<="%d";' %
-                        eventDay)
-            for (user, description) in cur.fetchall():
-                text = "Today you have to do: %s" % description
+            cur.execute('select * from event where date<="%d";' % eventDay)
+            for (user, _date, description) in cur.fetchall():
+                if _date == eventDay:
+                    text = "Today you have to do: %s" % description
+                else:
+                    text = ("At %s you should have done: %s" %
+                            (_date, description))
                 bot.send_message(chat_id=user, text=text)
             cur.execute('delete from event where date<="%d";' % eventDay)
             # Update lastReminder
