@@ -372,11 +372,12 @@ def main():
             eventDay = "%04d-%02d-%02d" % (_localtime.tm_year,
                                            _localtime.tm_month,
                                            _localtime.tm_day)
-            cur.execute('select user, text from event where date="%d";' %
+            cur.execute('select user, text from event where date<="%d";' %
                         eventDay)
             for (user, description) in cur.fetchall():
                 text = "Today you have to do: %s" % description
                 bot.send_message(chat_id=user, text=text)
+            cur.execute('delete from event where date<="%d";' % eventDay)
             # Update lastReminder
             general["lastReminder"] = day
             update_json()
