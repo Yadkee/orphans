@@ -20,7 +20,7 @@ def main():
     """)
     cur.execute("""create table reminder (
         user INT UNSIGNED,
-        date TIMESTAMP,
+        date INT UNSIGNED,
         text VARCHAR(140)
     );
     """)
