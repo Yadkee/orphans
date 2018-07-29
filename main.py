@@ -32,6 +32,16 @@ TABLE_INPUT = str.maketrans("/\\%", " " * 3)
 MONTH_DAYS = [31, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 MONTHS = ["December", "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
+START_MSG = """Hello %%s!
+I am Rebeca (Beta),
+the bot that acts as GUI of the project [Telemanager](%s).
+
+This is the actual list of commands:
+/birthday Add or list your friend's birthdays
+/remind I can notify you in less than 24 hours
+/event Add or list your future events
+/cancel Cancels the current operation
+""" % "https://github.com/Yadkee/TeleManager"
 
 
 def make_menu(l):
@@ -180,6 +190,9 @@ def main():
                 else:
                     text = "No active command to cancel"
                 bot.send_message(chat_id=chatId, text=text)
+            elif cmd == "start":
+                bot.send_message(chat_id=chatId, text=START_MSG % chatName,
+                                 parse_mode=MD)
         elif chatId in general["waiting"]:
             waiting = general["waiting"].pop(chatId)
             tags = waiting.split("/")
