@@ -2,7 +2,7 @@
 import telegram
 import logging
 from collections import deque
-from time import time, localtime
+from time import time, localtime, strftime
 from json import load, dump
 from sys import stderr
 from datetime import date
@@ -221,8 +221,8 @@ def main():
                 bot.edit_message_text(**kw, text=text,
                                       reply_markup=make_menu_calendar(*args))
             elif option == "L":
-                cur.execute("select date, text from birthday where user=%d;"
-                            "ORDER BY date" % chatId)
+                cur.execute("select date, text from birthday where user=%d "
+                            "order by date;" % chatId)
                 text = ["Listing birthdays:"]
                 for (_date, name) in cur.fetchall():
                     month, day = divmod(_date, 100)
@@ -256,8 +256,14 @@ def main():
                     bot.edit_message_text(**kw, text=text)
                     general["waiting"][chatId] = "/".join(tags)
             elif option == "L":
-                text = "Temporaly down"  # TODO: Change storage and add this
-                bot.edit_message_text(**kw, text=text)
+                cur.execute("select date, text from reminder where user=%d "
+                            "order by date;" % chatId)
+                text = ["Listing reminders:"]
+                for (_date, description) in cur.fetchall():
+                    timeStr = strftime("%H:%M:%S - %d%m%Y",
+                                       localtime(_date * 60))
+                    text.append("%s: %s" % (timeStr, description))
+                bot.edit_message_text(**kw, text="\n".join(text))
             elif option == "N":
                 if tags[4] == "Y":
                     total, name = int(tags[2]), tags[3]
@@ -329,7 +335,7 @@ def main():
             for (user, description) in reminders:
                 text = "Remember: %s" % description
                 bot.send_message(chat_id=user, text=text)
-            cur.execute("delete from reminder where date <=%d;" % reminderDate)
+            cur.execute("delete from reminder where date<=%d;" % reminderDate)
         # Update poller
         try:
             updates = bot.get_updates(offset=lastUpdate + 1, timeout=300,
