@@ -148,11 +148,6 @@ def main():
         chatName = chat["first_name"]
         isAdmin = "*" if chatId == ADMIN else ""
         identifier = "%s%s (%d)" % (isAdmin, chatName, chatId)
-        if chatId not in USERS:
-            text = "You are not a trusted user!\nContact the person running me"
-            bot.send_message(chat_id=chatId, text=text)
-            logger.info("%s was not in users so was ignored" % identifier)
-            return
         mText = message["text"]
         if mText is None:
             logger.warn("Received message is not text")
@@ -344,7 +339,6 @@ def main():
     with open("secret/config.json") as f:
         CONFIG = load(f)
     ADMIN = CONFIG["ADMIN"]
-    USERS = CONFIG["USERS"]
     try:
         with open("secret/general.json") as f:
             general = load(f)
@@ -360,7 +354,7 @@ def main():
     logger.info("Starting loop")
     bot = telegram.Bot(CONFIG["TOKEN"])
     lastUpdate = 0
-    latency = .5  # TODO: Change latency based on time & activity
+    latency = .5
     while True:
         _time = time()
         _localtime = localtime(_time)
@@ -406,7 +400,7 @@ def main():
             cur.execute("delete from reminder where date<=%d;" % reminderDate)
         # Update poller
         try:
-            updates = bot.get_updates(offset=lastUpdate + 1, timeout=300,
+            updates = bot.get_updates(offset=lastUpdate + 1, timeout=60,
                                       read_latency=latency)
         except telegram.error.TimedOut:
             logger.warn("Timed out")
