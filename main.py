@@ -162,7 +162,7 @@ def main():
         if mText is None:
             logger.warn("Received message is not text")
             return
-        logger.info("%s said %s" % (identifier, mText))
+        logger.info("[%s] %s said %s" % (strftime("%H:%M"), identifier, mText))
         kw = {"chat_id": chatId, "message_id": message["message_id"]}
 
         if mText == "ping":
@@ -376,7 +376,7 @@ def main():
         if _localtime.tm_hour >= 6 and general["lastReminder"] < day:
             # Birthdays
             logger.info("Reminding birthdays")
-            birthdayDay = _localtime.tm_month * 100 + _localtime.tm_day
+            birthdayDay = _localtime.tm_mon * 100 + _localtime.tm_mday
             cur.execute("select user, text from birthday where date=%d;" %
                         birthdayDay)
             for (user, name) in cur.fetchall():
@@ -384,10 +384,8 @@ def main():
                 bot.send_message(chat_id=user, text=text)
             # Events
             logger.info("Reminding events")
-            eventDay = "%04d-%02d-%02d" % (_localtime.tm_year,
-                                           _localtime.tm_month,
-                                           _localtime.tm_day)
-            cur.execute('select * from event where date<="%d";' % eventDay)
+            eventDay = date.today()
+            cur.execute('select * from event where date<="%s";' % eventDay)
             for (user, _date, description) in cur.fetchall():
                 if _date == eventDay:
                     text = "Today you have to do: %s" % description
@@ -395,7 +393,7 @@ def main():
                     text = ("At %s you should have done: %s" %
                             (_date, description))
                 bot.send_message(chat_id=user, text=text)
-            cur.execute('delete from event where date<="%d";' % eventDay)
+            cur.execute('delete from event where date<="%s";' % eventDay)
             # Update lastReminder
             general["lastReminder"] = day
             update_json()
