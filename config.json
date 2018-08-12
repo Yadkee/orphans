@@ -1,20 +1,18 @@
 {
-    "calendar": {
-        "path": "calendar",
-        "iDay": "11/6/18",
-        "fDay": "1/9/18",
-        "margins": [[40, 40], [30, 120]],
-        "dates": {
-            "birthdays": [
-                "1/1-Someone"
-            ],
-            "holidays": [
-                "1/2/18"
-            ],
-            "trips": [
-                "19/6/18-Somewhere",
-                "22/6/18-"
-            ]
-        }
+    "path": "calendar",
+    "iDay": "11/6/18",
+    "fDay": "1/9/18",
+    "margins": [[40, 40], [30, 120]],
+    "dates": {
+        "birthdays": [
+            "1/1-Someone"
+        ],
+        "holidays": [
+            "1/2/18"
+        ],
+        "trips": [
+            "19/6/18-Somewhere",
+            "22/6/18-"
+        ]
     }
 }

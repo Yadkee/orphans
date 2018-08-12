@@ -1,7 +1,5 @@
 #! python3
-from utilities import blit_text
 import pygame as pg
-from reportlab.pdfgen import canvas
 from datetime import datetime
 from datetime import timedelta
 from math import ceil
@@ -16,6 +14,34 @@ YEAR = datetime.today().year
 CAKE = pg.image.load(join("images", "cake.png"))
 PLANE1 = pg.image.load(join("images", "plane1.png"))
 PLANE2 = pg.image.load(join("images", "plane2.png"))
+
+
+def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
+              size=None, anchor="NW", fill=True):
+    antialiasing = True
+    renderedFont = font.render(text, antialiasing, fontColor, backgroundColor)
+    if size is not None:
+        if backgroundColor is not None and fill:
+            surface.fill(backgroundColor, (pos, size))
+        textRect = renderedFont.get_rect()
+        # North, South and Center
+        if "N" in anchor:
+            textRect.top = pos[1]
+        elif "S" in anchor:
+            textRect.bottom = pos[1] + size[1]
+        else:
+            textRect.centery = pos[1] + size[1] // 2
+        # West, East and Center
+        if "W" in anchor:
+            textRect.left = pos[0]
+        elif "E" in anchor:
+            textRect.right = pos[0] + size[0]
+        else:
+            textRect.centerx = pos[0] + size[0] // 2
+        surface.blit(renderedFont, textRect)
+    else:
+        surface.blit(renderedFont, pos)
+
 
 
 def pattern(x, y, width, height, times=2, step=1):
@@ -141,17 +167,6 @@ def create_calendar(path, iDay, fDay, margins, dates):
     pg.image.save(image, imgPath)
     print("PNG was created")
     pg.font.quit()
-    # Create PDF
-    try:
-        pdf = canvas.Canvas(pdfPath, pagesize=size)
-        xm, ym = margins
-        pdf.drawImage(imgPath, xm[0], ym[1],
-                      size[0] - sum(xm), size[1] - sum(ym),
-                      preserveAspectRatio=False, anchor="n")
-        pdf.save()
-        print("PDF was created")
-    except AttributeError:
-        pass
 
 
 def main():
@@ -159,7 +174,7 @@ def main():
     cPath = "config.json"
     try:
         with open(cPath, "rb") as f:
-            config = load(f)["calendar"]
+            config = load(f)
     except FileNotFoundError:
         raise Exception("Missing %s" % cPath)
     create_calendar(**config)

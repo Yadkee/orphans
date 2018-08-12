@@ -1,5 +1,5 @@
-# TimetableCreator
-Create cool timetables or calendars with an easy-to-use python script.
+# CalendarCreator
+Create cool calendars with an easy-to-use python script.
 
 ### Dependencies
 - Python 3
