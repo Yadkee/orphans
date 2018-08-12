@@ -4,30 +4,14 @@ Create cool timetables or calendars with an easy-to-use python script.
 ### Dependencies
 - Python 3
 - pygame
-- reportlab
 
 ### Usage
-Install the required libraries with with:
-```
-pip install -r requeriments.txt
-```
 
-To get a timetable or calendar first configure the config file
-and then run the script.
+To get a custom calendar first configure `config.json` and then run `main.py`.
 
-## Screenshots:
-Timetable:
+## Screenshot:
 
-![Timetable img](/examples/timetable.png "Timetable example")
-
-
-Calendar:
-
-![Calendar img](/examples/calendar.png "Calendar example")
-
-#### TODO:
-
-- [ ] Integrate timetable_config with config.json
+![Calendar img](/screenshot.png "Calendar example")
 
 ##### Note
 
