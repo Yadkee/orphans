@@ -1,23 +1,36 @@
 #! python3
 import pygame as pg
-from datetime import datetime
-from datetime import timedelta
-from math import ceil
-from math import cos
-from math import pi
-from math import exp
+from time import gmtime
+from datetime import datetime, timedelta
+from math import ceil, cos, pi, exp
 from json import load
 from os.path import join
 
-DAY = timedelta(1)
 YEAR = datetime.today().year
+DAY = timedelta(1)
+pg.font.init()
+WEEK_DAY_FONT = pg.font.SysFont("Arial", 40)
+DAY_FONT = pg.font.SysFont("Arial", 40)
+TEXT_FONT = pg.font.SysFont("Times", 25)
 CAKE = pg.image.load(join("images", "cake.png"))
 PLANE1 = pg.image.load(join("images", "plane1.png"))
 PLANE2 = pg.image.load(join("images", "plane2.png"))
+A4 = {75: (595, 842), 96: (794, 1123),
+      150: (1240, 1754), 300: (2480, 3508)}
+SIZE = A4[150]
+WIDTH = SIZE[0] // 7
+HEADER_SIZE = 55
+BD = 1
+WEEK_DAYS = ("L", "M", "X", "J", "V", "S", "D")
+GRAY = [(i, i, i) for i in range(256)]
+WHITE = GRAY[255]
+BLACK = GRAY[0]
+away=0
 
 
 def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
               size=None, anchor="NW", fill=True):
+    """Blits text into a pygame Surface following the parameters"""
     antialiasing = True
     renderedFont = font.render(text, antialiasing, fontColor, backgroundColor)
     if size is not None:
@@ -43,8 +56,11 @@ def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
         surface.blit(renderedFont, pos)
 
 
-
-def pattern(x, y, width, height, times=2, step=1):
+def wave_pattern(x, y, width, height, times=2, step=1, away=None):
+    """Generates a list of points following this wave pattern"""
+    if away is not None:
+        # Values from 1 to 10 reached first at (0, 1, 2, 3, 4, 5, 7, 9, 12, 17)
+        times = int(11 - 10 * exp(-away / 7))
     M = 2 * pi * times
     out = []
     for i in range(0, width + 1, step):
@@ -54,13 +70,8 @@ def pattern(x, y, width, height, times=2, step=1):
     return out
 
 
-def f(x):
-    """Values from 1 to 10 reached first at (0, 1, 2, 3, 4, 5, 7, 9, 12, 17)"""
-    e = 11 - 10 * exp(-x / 7)
-    return int(e)
-
-
-def _datetime(s):
+def str2Date(s):
+    """Create a date object from a string in the format dd/mm/yyyy"""
     args = [int(i) for i in s.split("/")]
     if len(args) == 2:  # 1/1 to 1/1/{user year}
         args.append(YEAR)
@@ -69,108 +80,103 @@ def _datetime(s):
     return datetime(*args[::-1])
 
 
-def _birthday(s):
+def str2Birthday(s):
     day, name = s.split("-", 1)
-    return (_datetime(day), name)
+    return (str2Date(day), name)
 
 
-def create_calendar(path, iDay, fDay, margins, dates):
-    days = _datetime(iDay), _datetime(fDay)
-    birthdays = dict(map(_birthday, dates["birthdays"]))
-    holidays = set(map(_datetime, dates["holidays"]))
-    trips = dict(map(_birthday, dates["trips"]))
-    # Adjust to mondays and sundays (first and last respectively)
-    initialDay = days[0] - timedelta(days[0].weekday())
-    finalDay = days[1] + timedelta(6 - days[1].weekday())
-    weeks = ceil((finalDay - initialDay).days / 7)
-    # Set variables
+def generate(path, initialDay, weeks, birthdays, holidays, trips):
+    def paint_birthday(day, x, y, width, height, color):
+        blit_text(image, TEXT_FONT, (x + 80, y + 5),
+                  birthdays[currentDay], BLACK,
+                  color, size=(width - 80, height - 5),
+                  anchor="NW")
+        image.blit(CAKE, (x + 40, y + 5))
+
+    def paint_holiday(day, x, y, width, height, color):
+        pos = (x + width // 2, y + 3 * height // 4)
+        pg.draw.circle(image, GRAY[230], pos, height // 4, height // 9)
+
+    def paint_day(day, wDay, week):
+        global away
+        dayNumber = day.day
+        x = wDay * WIDTH + (dayNumber == 1)
+        y = HEADER_SIZE + week * HEIGHT
+        width = WIDTH - (dayNumber == 1)
+        height = HEIGHT - (dayNumber < 8)
+        color = GRAY[245 if wDay & 1 else 255]
+        args = (day, x, y, width, height, color)
+        if dayNumber == 1:
+            text = "%d %s" % (dayNumber, currentDay.strftime("%b"))
+        else:
+            text = str(dayNumber)
+
+        blit_text(image, DAY_FONT, (x, y), text, BLACK,
+                  color, size=(width, height), anchor="NW")
+        if day in birthdays:
+            paint_birthday(*args)
+        if day in holidays:
+            paint_holiday(*args)
+        if currentDay in trips:
+            destination = trips[currentDay]
+            name = destination.lstrip("><")
+            if name:
+                blit_text(image, TEXT_FONT, (x, y + height - 38),
+                          name, BLACK, color,
+                          size=(width - 40, 38), anchor="E")
+            if "<" in destination:
+                away = 0
+                image.blit(PLANE2, (x + 5, y + height - 35))
+            if ">" in destination:
+                away = 1
+                image.blit(PLANE1, (x + width - 35, y + height - 35))
+        elif away:
+            pg.draw.aalines(image, BLACK, False,
+                            wave_pattern(x, y + height - 13,
+                                         width, 11, away=away))
+            away += 1
+    """Generate the calendar png"""
     imgPath = path + ".png"
-    pdfPath = path + ".pdf"
-    a4 = {75: (595, 842), 96: (794, 1123),
-          150: (1240, 1754), 300: (2480, 3508)}
-    size = a4[150]
-    wDays = ("L", "M", "X", "J", "V", "S", "D")
-    gray = [(i, i, i) for i in range(256)]
-    # Prepare fonts
-    pg.font.init()
-    wDayFont = pg.font.SysFont("Arial", 40)
-    dayFont = pg.font.SysFont("Arial", 40)
-    textFont = pg.font.SysFont("Times", 25)
-    # Prepare surface and set some sizes
-    image = pg.surface.Surface(size)
-    image.fill(gray[255])
-    width = size[0] // 7
-    headerSize = 55
-    height = (size[1] - headerSize) // weeks
-    image.fill(gray[0], ((0, headerSize), (width * 7, height * weeks)))
-    # Blit header
+    image = pg.surface.Surface(SIZE)
+    image.fill(BLACK)
+    HEIGHT = (SIZE[1] - HEADER_SIZE) // weeks
+    # Paint header
     for wDay in range(7):
-        x = wDay * width
-        color = gray[205 if wDay & 1 else 220]
-        blit_text(image, wDayFont, (x, 0), wDays[wDay], gray[0], color,
-                  size=(width, headerSize), anchor="N")
+        x = wDay * WIDTH
+        color = GRAY[215 if wDay & 1 else 225]
+        blit_text(image, WEEK_DAY_FONT, (x, 0), WEEK_DAYS[wDay], WHITE, color,
+                  size=(WIDTH, HEADER_SIZE), anchor="")
     # Blit every week
-    bd = 1  # Border size
-    uB = 0  # Upper border
+    y = HEADER_SIZE
     currentDay = initialDay
-    y = headerSize
-    away = 0
     for week in range(weeks):
         for wDay in range(7):
-            lB = 0  # Lateral border
-            x = wDay * width
-            color = gray[245 if wDay & 1 else 255]
-            dayNumber = currentDay.day
-            if dayNumber == 1:
-                lB = bd
-                uB = bd
-                text = "%d %s" % (dayNumber, currentDay.strftime("%b"))
-            else:
-                if dayNumber == 8:
-                    uB = 0
-                text = str(dayNumber)
-            px, py = x + lB, y + uB
-            blit_text(image, dayFont, (px, py), text, gray[0],
-                      color, size=(width - lB, height - uB), anchor="NW")
-            if currentDay in birthdays:
-                blit_text(image, textFont, (x + lB + 80, y + uB + 5),
-                          birthdays[currentDay], gray[0],
-                          color, size=(width - lB - 80, height - uB - 5),
-                          anchor="NW")
-                image.blit(CAKE, (px + 40, py + 5))
-            if currentDay in holidays:
-                pos = (px + (width - lB) // 2,
-                       py + 3 * (height - uB) // 4)
-                pg.draw.circle(image, gray[230], pos, height // 4, height // 9)
-            if currentDay in trips:
-                destination = trips[currentDay]
-                name = destination.lstrip("><")
-                if name:
-                    blit_text(image, textFont, (px, y + height - 38),
-                              name, gray[0], color,
-                              size=(width - lB - 40, 38), anchor="E")
-                if "<" in destination:
-                    away = 0
-                    image.blit(PLANE2, (px + 5, y + height - 35))
-                if ">" in destination:
-                    away = 1
-                    image.blit(PLANE1, (x + width - 35, y + height - 35))
-            elif away:
-                pg.draw.aalines(image, gray[0], False,
-                                pattern(px, y + height - 13, width - lB, 11,
-                                        times=f(away)))
-                away += 1
+            paint_day(currentDay, wDay, week)
             currentDay += DAY
-        y += height
+        y += HEIGHT
         if week != weeks - 1:
-            image.fill(gray[200], rect=((0, y - 1), (size[0], 1)))
+            image.fill(GRAY[200], rect=((0, y - 1), (SIZE[0], 1)))
     pg.image.save(image, imgPath)
     print("PNG was created")
     pg.font.quit()
 
 
+def create_calendar(path, iDay, fDay, dates):
+    """Parses the json file into python types"""
+    days = str2Date(iDay), str2Date(fDay)
+    birthdays = dict(map(str2Birthday, dates["birthdays"]))
+    holidays = set(map(str2Date, dates["holidays"]))
+    trips = dict(map(str2Birthday, dates["trips"]))
+    # Adjust to mondays and sundays (first and last respectively)
+    initialDay = days[0] - timedelta(days[0].weekday())
+    finalDay = days[1] + timedelta(6 - days[1].weekday())
+    weeks = ceil((finalDay - initialDay).days / 7)
+    # Pass arguments to generate
+    generate(path, initialDay, weeks, birthdays, holidays, trips)
+
+
 def main():
-    """Edit cPath to set the parameters"""
+    """Create a calendar with the configuration set in cPath"""
     cPath = "config.json"
     try:
         with open(cPath, "rb") as f:
