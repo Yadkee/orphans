@@ -1,31 +1,27 @@
 #! python3
 import pygame as pg
-from time import gmtime
-from datetime import datetime, timedelta
-from math import ceil, cos, pi, exp
+from datetime import date
 from json import load
 from os.path import join
 
-YEAR = datetime.today().year
-DAY = timedelta(1)
+YEAR = date.today().year
 pg.font.init()
-WEEK_DAY_FONT = pg.font.SysFont("Arial", 40)
 DAY_FONT = pg.font.SysFont("Arial", 40)
 TEXT_FONT = pg.font.SysFont("Times", 25)
 CAKE = pg.image.load(join("images", "cake.png"))
-PLANE1 = pg.image.load(join("images", "plane1.png"))
-PLANE2 = pg.image.load(join("images", "plane2.png"))
 A4 = {75: (595, 842), 96: (794, 1123),
       150: (1240, 1754), 300: (2480, 3508)}
 SIZE = A4[150]
 WIDTH = SIZE[0] // 7
 HEADER_SIZE = 55
 BD = 1
-WEEK_DAYS = ("L", "M", "X", "J", "V", "S", "D")
+WEEK_DAYS = ("L", "M", "X", "J", "V", "S", "D")  # You may want to change this
 GRAY = [(i, i, i) for i in range(256)]
 WHITE = GRAY[255]
 BLACK = GRAY[0]
-away=0
+COLORS = {"F00": (255, 0, 0), "0F0": (0, 255, 0), "00F": (0, 0, 255),
+          "FF0": (255, 255, 0), "0FF": (0, 255, 255), "F0F": (255, 0, 255),
+          "FFF": WHITE, "000": BLACK}
 
 
 def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
@@ -56,20 +52,6 @@ def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
         surface.blit(renderedFont, pos)
 
 
-def wave_pattern(x, y, width, height, times=2, step=1, away=None):
-    """Generates a list of points following this wave pattern"""
-    if away is not None:
-        # Values from 1 to 10 reached first at (0, 1, 2, 3, 4, 5, 7, 9, 12, 17)
-        times = int(11 - 10 * exp(-away / 7))
-    M = 2 * pi * times
-    out = []
-    for i in range(0, width + 1, step):
-        value = -cos(i / width * M) * height
-        out.append((x + i, y + value))
-    out.append((x + width, y - height))
-    return out
-
-
 def str2Date(s):
     """Create a date object from a string in the format dd/mm/yyyy"""
     args = [int(i) for i in s.split("/")]
@@ -77,102 +59,105 @@ def str2Date(s):
         args.append(YEAR)
     if args[2] < 1000:  # 1/1/18 to 1/1/2018
         args[2] += 2000
-    return datetime(*args[::-1])
+    return date(*args[::-1]).toordinal() - 1
 
 
 def str2Birthday(s):
-    day, name = s.split("-", 1)
+    day, name = s.split("-")
     return (str2Date(day), name)
 
 
-def generate(path, initialDay, weeks, birthdays, holidays, trips):
-    def paint_birthday(day, x, y, width, height, color):
-        blit_text(image, TEXT_FONT, (x + 80, y + 5),
-                  birthdays[currentDay], BLACK,
-                  color, size=(width - 80, height - 5),
-                  anchor="NW")
-        image.blit(CAKE, (x + 40, y + 5))
+def str2Day(s):
+    day, color, name = s.split("-")
+    return (str2Date(day), (color, name))
 
-    def paint_holiday(day, x, y, width, height, color):
-        pos = (x + width // 2, y + 3 * height // 4)
-        pg.draw.circle(image, GRAY[230], pos, height // 4, height // 9)
 
-    def paint_day(day, wDay, week):
-        global away
-        dayNumber = day.day
-        x = wDay * WIDTH + (dayNumber == 1)
-        y = HEADER_SIZE + week * HEIGHT
-        width = WIDTH - (dayNumber == 1)
-        height = HEIGHT - (dayNumber < 8)
-        color = GRAY[245 if wDay & 1 else 255]
-        args = (day, x, y, width, height, color)
+def smooth_color(color, isOdd):
+    if isOdd:
+        return [235 + i * 4 // 51 for i in color]
+    else:
+        return [240 + i * 3 // 51 for i in color]
+
+
+def generate(_path, _iDay, _weeks, _birthdays, _periods):
+    def paint_day(day):
+        _date = date.fromordinal(day + 1)
+        dayNumber = _date.day
+        week = (day - iDay) // 7
+        x = day % 7 * WIDTH
+        y = HEADER_SIZE + week * HEIGHT + (dayNumber < 8)
+        width = WIDTH
+        height = HEIGHT - (dayNumber < 8) - 1
+        if week == _weeks - 1:
+            height += extra + 1
+        _color, name = periods.pop(day, (WHITE, None))
+        color = smooth_color(_color, day % 7 & 1)
         if dayNumber == 1:
-            text = "%d %s" % (dayNumber, currentDay.strftime("%b"))
+            text = "%d %s" % (dayNumber, _date.strftime("%b"))
+            if day % 7:
+                x += 1
+                width -= 1
         else:
             text = str(dayNumber)
-
         blit_text(image, DAY_FONT, (x, y), text, BLACK,
                   color, size=(width, height), anchor="NW")
         if day in birthdays:
-            paint_birthday(*args)
-        if day in holidays:
-            paint_holiday(*args)
-        if currentDay in trips:
-            destination = trips[currentDay]
-            name = destination.lstrip("><")
-            if name:
-                blit_text(image, TEXT_FONT, (x, y + height - 38),
-                          name, BLACK, color,
-                          size=(width - 40, 38), anchor="E")
-            if "<" in destination:
-                away = 0
-                image.blit(PLANE2, (x + 5, y + height - 35))
-            if ">" in destination:
-                away = 1
-                image.blit(PLANE1, (x + width - 35, y + height - 35))
-        elif away:
-            pg.draw.aalines(image, BLACK, False,
-                            wave_pattern(x, y + height - 13,
-                                         width, 11, away=away))
-            away += 1
-    """Generate the calendar png"""
-    imgPath = path + ".png"
+            offset = 50 if dayNumber > 9 else 30
+            blit_text(image, TEXT_FONT, (x + offset + 40, y + 5),
+                      birthdays[day], BLACK,
+                      color, size=(width - offset - 40, height - 5),
+                      anchor="NW")
+            image.blit(CAKE, (x + offset, y + 5))
+        if day in show:
+            blit_text(image, TEXT_FONT, (x, y + height - 40),
+                      name, BLACK, color,
+                      size=(width, 40), anchor="SW")
+    # Process arguments
+    iDay = str2Date(_iDay) * 7 // 7
+    birthdays = dict(map(str2Birthday, _birthdays))
+    periods = {}
+    for period in _periods:
+        _iDay = str2Date(period["iDay"])
+        fDay = str2Date(period.pop("fDay", period["iDay"]))
+        name = period.pop("name", None)
+        _color = period.pop("color", "F00")
+        color = COLORS[_color]
+        weekend = COLORS[period.pop("weekend", _color)]
+        exceptions = set(map(str2Date, period.pop("exceptions", tuple())))
+        for day in range(_iDay, fDay + 1):
+            if day in exceptions:
+                continue
+            if day % 7 > 4:
+                periods[day] = (weekend, name)
+            else:
+                periods[day] = (color, name)
+    show = set()
+    last = []
+    for day, (_, name) in periods.items():
+        if name is not None and name not in last[-7:]:
+            show.add(day)
+        last.append(name)
+    # Create image
     image = pg.surface.Surface(SIZE)
     image.fill(BLACK)
-    HEIGHT = (SIZE[1] - HEADER_SIZE) // weeks
+    HEIGHT, extra = divmod(SIZE[1] - HEADER_SIZE, _weeks)
+    for week in range(1, _weeks):
+        y = HEADER_SIZE + week * HEIGHT - 1
+        image.fill(GRAY[200], rect=((0, y), (SIZE[0], 1)))
     # Paint header
     for wDay in range(7):
         x = wDay * WIDTH
         color = GRAY[215 if wDay & 1 else 225]
-        blit_text(image, WEEK_DAY_FONT, (x, 0), WEEK_DAYS[wDay], WHITE, color,
+        blit_text(image, DAY_FONT, (x, 0), WEEK_DAYS[wDay], WHITE, color,
                   size=(WIDTH, HEADER_SIZE), anchor="")
     # Blit every week
     y = HEADER_SIZE
-    currentDay = initialDay
-    for week in range(weeks):
-        for wDay in range(7):
-            paint_day(currentDay, wDay, week)
-            currentDay += DAY
+    day = iDay
+    for day in range(day, day + _weeks * 7):
+        paint_day(day)
         y += HEIGHT
-        if week != weeks - 1:
-            image.fill(GRAY[200], rect=((0, y - 1), (SIZE[0], 1)))
-    pg.image.save(image, imgPath)
+    pg.image.save(image, _path + ".png")
     print("PNG was created")
-    pg.font.quit()
-
-
-def create_calendar(path, iDay, fDay, dates):
-    """Parses the json file into python types"""
-    days = str2Date(iDay), str2Date(fDay)
-    birthdays = dict(map(str2Birthday, dates["birthdays"]))
-    holidays = set(map(str2Date, dates["holidays"]))
-    trips = dict(map(str2Birthday, dates["trips"]))
-    # Adjust to mondays and sundays (first and last respectively)
-    initialDay = days[0] - timedelta(days[0].weekday())
-    finalDay = days[1] + timedelta(6 - days[1].weekday())
-    weeks = ceil((finalDay - initialDay).days / 7)
-    # Pass arguments to generate
-    generate(path, initialDay, weeks, birthdays, holidays, trips)
 
 
 def main():
@@ -183,7 +168,7 @@ def main():
             config = load(f)
     except FileNotFoundError:
         raise Exception("Missing %s" % cPath)
-    create_calendar(**config)
+    generate(**config)
 
 if __name__ == "__main__":
     main()

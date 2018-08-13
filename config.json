@@ -1,18 +1,16 @@
 {
-    "path": "calendar",
-    "iDay": "11/6/18",
-    "fDay": "1/9/18",
-    "margins": [[40, 40], [30, 120]],
-    "dates": {
-        "birthdays": [
-            "1/1-Someone"
-        ],
-        "holidays": [
-            "1/2/18"
-        ],
-        "trips": [
-            "19/6/18-Somewhere",
-            "22/6/18-"
-        ]
-    }
+    "_path": "calendar",
+    "_iDay": "13/8/18",
+    "_weeks": 10,
+    "_birthdays": [
+        "25/9-Peter"
+    ],
+    "_periods": [
+        {"iDay": "18/8/18",
+         "fDay": "26/8/18",
+         "name": "Something",
+         "color": "00F",
+         "weekend": "00F",
+         "exceptions": ["20/8/18"]}
+    ]
 }
