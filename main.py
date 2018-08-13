@@ -12,7 +12,7 @@ CAKE = pg.image.load(join("images", "cake.png"))
 A4 = {75: (595, 842), 96: (794, 1123),
       150: (1240, 1754), 300: (2480, 3508)}
 SIZE = A4[150]
-WIDTH = SIZE[0] // 7
+WIDTH, EXTRA_WIDTH = divmod(SIZE[0], 7)
 HEADER_SIZE = 55
 BD = 1
 WEEK_DAYS = ("L", "M", "X", "J", "V", "S", "D")  # You may want to change this
@@ -88,8 +88,10 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
         y = HEADER_SIZE + week * HEIGHT + (dayNumber < 8)
         width = WIDTH
         height = HEIGHT - (dayNumber < 8) - 1
+        if day % 7 == 6:
+            width += EXTRA_WIDTH
         if week == _weeks - 1:
-            height += extra + 1
+            height += EXTRA_HEIGHT + 1
         _color, name = periods.pop(day, (WHITE, None))
         color = smooth_color(_color, day % 7 & 1)
         if dayNumber == 1:
@@ -140,16 +142,19 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
     # Create image
     image = pg.surface.Surface(SIZE)
     image.fill(BLACK)
-    HEIGHT, extra = divmod(SIZE[1] - HEADER_SIZE, _weeks)
+    HEIGHT, EXTRA_HEIGHT = divmod(SIZE[1] - HEADER_SIZE, _weeks)
     for week in range(1, _weeks):
         y = HEADER_SIZE + week * HEIGHT - 1
         image.fill(GRAY[200], rect=((0, y), (SIZE[0], 1)))
     # Paint header
     for wDay in range(7):
         x = wDay * WIDTH
+        width = WIDTH
+        if wDay == 6:
+            width += EXTRA_WIDTH
         color = GRAY[215 if wDay & 1 else 225]
         blit_text(image, DAY_FONT, (x, 0), WEEK_DAYS[wDay], WHITE, color,
-                  size=(WIDTH, HEADER_SIZE), anchor="")
+                  size=(width, HEADER_SIZE), anchor="")
     # Blit every week
     y = HEADER_SIZE
     day = iDay
