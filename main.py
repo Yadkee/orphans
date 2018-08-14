@@ -123,13 +123,14 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
         lowestY = y + height
         if day in birthdays:
             names = birthdays[day]
+            offset = 50 if dayNumber > 9 else 30
+            _height = 40
+            size = (width - offset - 40, _height)
             for name in names.split("\n"):
-                offset = (50 if dayNumber > 9 else 30)
-                size = (width - offset - 40, 40)
                 font = fit_font(BIRTHDAY_FONT_NAME, name, size)
                 blit_text(image, font, (x + offset + 35, highestY),
                           name, GRAY[100], color, size=size, anchor="W")
-                highestY += 40
+                highestY += _height
             image.blit(CAKE, (x + offset, y + 2))
         if day in show:
             _height = 30
