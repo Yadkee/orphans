@@ -3,11 +3,14 @@ import pygame as pg
 from datetime import date
 from json import load
 from os.path import join
+from functools import lru_cache
 
 YEAR = date.today().year
 pg.font.init()
-DAY_FONT = pg.font.SysFont("Arial", 40)
-TEXT_FONT = pg.font.SysFont("Times", 25)
+pgSysFont = pg.font.SysFont
+DAY_FONT = pgSysFont("Arial", 40)
+BIRTHDAY_FONT_NAME = "Arial"
+TEXT_FONT_NAME = "Times"
 CAKE = pg.image.load(join("images", "cake.png"))
 A4 = {75: (595, 842), 96: (794, 1123),
       150: (1240, 1754), 300: (2480, 3508)}
@@ -50,6 +53,19 @@ def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
         surface.blit(renderedFont, textRect)
     else:
         surface.blit(renderedFont, pos)
+
+
+@lru_cache(maxsize=None)
+def fit_font(name, text, size, mn=8, mx=50, precision=1):
+    _width, _height = size
+    while mx - mn > precision:
+        value = (mx + mn) // 2
+        width, height = pgSysFont(name, value).size(text)
+        if width > _width or height > _height:
+            mx = value
+        else:
+            mn = value
+    return pgSysFont(name, (mx + mn) // 2)
 
 
 def str2Date(s):
@@ -104,16 +120,21 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
         blit_text(image, DAY_FONT, (x, y), text, BLACK,
                   color, size=(width, height), anchor="NW")
         if day in birthdays:
-            offset = 50 if dayNumber > 9 else 30
-            blit_text(image, TEXT_FONT, (x + offset + 40, y + 5),
-                      birthdays[day], BLACK,
-                      color, size=(width - offset - 40, height - 5),
-                      anchor="NW")
-            image.blit(CAKE, (x + offset, y + 5))
+            names = birthdays[day]
+            for a, name in enumerate(names.split("\n")):
+                offset = (50 if dayNumber > 9 else 30)
+                size = (width - offset - 40, 40)
+                font = fit_font(BIRTHDAY_FONT_NAME, name, size)
+                blit_text(image, font, (x + offset + 35, y + 40 * a),
+                          name, GRAY[100], color, size=size, anchor="W")
+            image.blit(CAKE, (x + offset, y + 2))
         if day in show:
-            blit_text(image, TEXT_FONT, (x, y + height - 40),
-                      name, BLACK, color,
-                      size=(width, 40), anchor="SW")
+            _height = 30
+            size = (width, _height)
+            name = "{%s}" % name
+            font = fit_font(TEXT_FONT_NAME, name, (width, _height))
+            blit_text(image, font, (x, y + height - _height),
+                      name, BLACK, color, size=size, anchor="SW")
     # Process arguments
     iDay = str2Date(_iDay) * 7 // 7
     birthdays = dict(map(str2Birthday, _birthdays))
