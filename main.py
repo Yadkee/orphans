@@ -119,21 +119,25 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
             text = str(dayNumber)
         blit_text(image, DAY_FONT, (x, y), text, BLACK,
                   color, size=(width, height), anchor="NW")
+        highestY = y
+        lowestY = y + height
         if day in birthdays:
             names = birthdays[day]
-            for a, name in enumerate(names.split("\n")):
+            for name in names.split("\n"):
                 offset = (50 if dayNumber > 9 else 30)
                 size = (width - offset - 40, 40)
                 font = fit_font(BIRTHDAY_FONT_NAME, name, size)
-                blit_text(image, font, (x + offset + 35, y + 40 * a),
+                blit_text(image, font, (x + offset + 35, highestY),
                           name, GRAY[100], color, size=size, anchor="W")
+                highestY += 40
             image.blit(CAKE, (x + offset, y + 2))
         if day in show:
             _height = 30
+            lowestY -= _height
             size = (width, _height)
             name = "{%s}" % name
-            font = fit_font(TEXT_FONT_NAME, name, (width, _height))
-            blit_text(image, font, (x, y + height - _height),
+            font = fit_font(TEXT_FONT_NAME, name, size)
+            blit_text(image, font, (x, lowestY),
                       name, BLACK, color, size=size, anchor="SW")
     # Process arguments
     iDay = str2Date(_iDay) * 7 // 7
