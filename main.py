@@ -141,7 +141,7 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
             blit_text(image, font, (x, lowestY),
                       name, BLACK, color, size=size, anchor="SW")
     # Process arguments
-    iDay = str2Date(_iDay) * 7 // 7
+    iDay = str2Date(_iDay) // 7 * 7
     birthdays = dict(map(str2Birthday, _birthdays))
     periods = {}
     for period in _periods:
