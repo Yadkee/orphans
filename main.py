@@ -1,22 +1,22 @@
 #! python3
 import pygame as pg
-from datetime import date
+from datetime import date as date_class
 from json import load
 from os.path import join
 from functools import lru_cache
 
-YEAR = date.today().year
+YEAR = date_class.today().year
 pg.font.init()
 pgSysFont = pg.font.SysFont
-DAY_FONT = pgSysFont("Arial", 40)
-BIRTHDAY_FONT_NAME = "Arial"
-TEXT_FONT_NAME = "Times"
-CAKE = pg.image.load(join("images", "cake.png"))
+MONO_FONT_NAME = "dejavusansmono"
+BIRTHDAY_FONT_NAME = "dejavusans"
+TEXT_FONT_NAME = "dejavuserif"
+GIFT_PNG = pg.image.load(join("images", "gift.png"))
 A4 = {75: (595, 842), 96: (794, 1123),
       150: (1240, 1754), 300: (2480, 3508)}
 SIZE = A4[150]
 WIDTH, EXTRA_WIDTH = divmod(SIZE[0], 7)
-HEADER_SIZE = 55
+HEADER_HEIGHT = SIZE[1] // 35
 BD = 1
 WEEK_DAYS = ("L", "M", "X", "J", "V", "S", "D")  # You may want to change this
 GRAY = [(i, i, i) for i in range(256)]
@@ -56,7 +56,8 @@ def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
 
 
 @lru_cache(maxsize=None)
-def fit_font(name, text, size, mn=8, mx=50, precision=1):
+def fit_font(name, text, size, mn=1, mx=50, precision=1):
+    """Returns a font (of type name) that fits size with text"""
     _width, _height = size
     while mx - mn > precision:
         value = (mx + mn) // 2
@@ -75,7 +76,7 @@ def str2Date(s):
         args.append(YEAR)
     if args[2] < 1000:  # 1/1/18 to 1/1/2018
         args[2] += 2000
-    return date(*args[::-1]).toordinal() - 1
+    return date_class(*args[::-1]).toordinal() - 1
 
 
 def str2Birthday(s):
@@ -88,59 +89,73 @@ def str2Day(s):
     return (str2Date(day), (color, name))
 
 
-def smooth_color(color, isOdd):
-    if isOdd:
-        return [235 + i * 4 // 51 for i in color]
-    else:
-        return [240 + i * 3 // 51 for i in color]
-
-
 def generate(_path, _iDay, _weeks, _birthdays, _periods):
     def paint_day(day):
-        _date = date.fromordinal(day + 1)
-        dayNumber = _date.day
+        def smooth_color(color, isOdd):
+            if isOdd:
+                return [235 + i * 4 // 51 for i in color]
+            else:
+                return [240 + i * 3 // 51 for i in color]
+        # Figure postion, size and color
+        date = date_class.fromordinal(day + 1)
+        dayNumber = date.day
         week = (day - iDay) // 7
         x = day % 7 * WIDTH
-        y = HEADER_SIZE + week * HEIGHT + (dayNumber < 8)
-        width = WIDTH
+        y = HEADER_HEIGHT + week * HEIGHT + (dayNumber < 8)
+        width = WIDTH + (EXTRA_WIDTH if day % 7 == 6 else 0)
         height = HEIGHT - (dayNumber < 8) - 1
-        if day % 7 == 6:
-            width += EXTRA_WIDTH
-        if week == _weeks - 1:
+        if week == weeks - 1:
             height += EXTRA_HEIGHT + 1
-        _color, name = periods.pop(day, (WHITE, None))
+        _color, periodName = periods.pop(day, (WHITE, None))
         color = smooth_color(_color, day % 7 & 1)
+        # Blit day number
         if dayNumber == 1:
-            text = "%d %s" % (dayNumber, _date.strftime("%b"))
+            dayText = "%d %s" % (dayNumber, date.strftime("%b"))
             if day % 7:
                 x += 1
                 width -= 1
+            dayFont = fit_font(MONO_FONT_NAME, dayText,
+                               (width, height // 3))
         else:
-            text = str(dayNumber)
-        blit_text(image, DAY_FONT, (x, y), text, BLACK,
+            dayText = str(dayNumber)
+            dayFont = fit_font(MONO_FONT_NAME, dayText,
+                               (width // 4, height // 3))
+        daySize = dayFont.size(dayText)
+        blit_text(image, dayFont, (x, y), dayText, BLACK,
                   color, size=(width, height), anchor="NW")
-        highestY = y
-        lowestY = y + height
-        if day in birthdays:
-            names = birthdays[day]
-            offset = 50 if dayNumber > 9 else 30
-            _height = 40
-            size = (width - offset - 40, _height)
-            for name in names.split("\n"):
-                font = fit_font(BIRTHDAY_FONT_NAME, name, size)
-                blit_text(image, font, (x + offset + 35, highestY),
-                          name, GRAY[100], color, size=size, anchor="W")
-                highestY += _height
-            image.blit(CAKE, (x + offset, y + 2))
+        topY = y
+        if dayNumber == 1:
+            topY += daySize[1]
+        bottomY = y + height
+        # Blit birthdays
+        try:
+            names = enumerate(birthdays[day].split("\n"))
+        except KeyError:
+            names = []
+        for a, name in names:
+            offset = (daySize[0] if not a and dayNumber != 1 else 0)
+            birthdayHeigth = min(bottomY - topY, height // 3)
+            if birthdayHeigth >= 8:
+                birthdayImageSide = int(birthdayHeigth * 0.8)
+                birthdayImageSize = (birthdayImageSide, birthdayImageSide)
+                birthdayImage = pg.transform.scale(GIFT_PNG, birthdayImageSize)
+                image.blit(birthdayImage, (x + offset, topY))
+                offset += birthdayImageSide
+            birthdayWidth = (width - offset)
+            birthdaySize = (birthdayWidth, birthdayHeigth)
+            birthdayFont = fit_font(BIRTHDAY_FONT_NAME, name, birthdaySize)
+            blit_text(image, birthdayFont, (x + offset, topY),
+                      name, GRAY[100], color, size=birthdaySize, anchor="W")
+            topY += birthdayHeigth
+        # Blit period
         if day in show:
-            _height = 30
-            lowestY -= _height
-            size = (width, _height)
-            name = "{%s}" % name
-            font = fit_font(TEXT_FONT_NAME, name, size)
-            blit_text(image, font, (x, lowestY),
-                      name, BLACK, color, size=size, anchor="SW")
+            periodText = "{%s}" % periodName
+            periodSize = (width, min(bottomY - topY, height // 3))
+            font = fit_font(TEXT_FONT_NAME, periodText, periodSize)
+            blit_text(image, font, (x, bottomY - periodSize[1]),
+                      periodText, BLACK, color, size=periodSize, anchor="SW")
     # Process arguments
+    weeks = min(max(_weeks, 1), 52)
     iDay = str2Date(_iDay) // 7 * 7
     birthdays = dict(map(str2Birthday, _birthdays))
     periods = {}
@@ -148,6 +163,8 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
         _iDay = str2Date(period["iDay"])
         fDay = str2Date(period.pop("fDay", period["iDay"]))
         name = period.pop("name", None)
+        if name == "":
+            name = None
         _color = period.pop("color", "F00")
         color = COLORS[_color]
         weekend = COLORS[period.pop("weekend", _color)]
@@ -168,38 +185,34 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
     # Create image
     image = pg.surface.Surface(SIZE)
     image.fill(BLACK)
-    HEIGHT, EXTRA_HEIGHT = divmod(SIZE[1] - HEADER_SIZE, _weeks)
-    for week in range(1, _weeks):
-        y = HEADER_SIZE + week * HEIGHT - 1
+    HEIGHT, EXTRA_HEIGHT = divmod(SIZE[1] - HEADER_HEIGHT, weeks)
+    for week in range(1, weeks):
+        y = HEADER_HEIGHT + week * HEIGHT - 1
         image.fill(GRAY[200], rect=((0, y), (SIZE[0], 1)))
     # Paint header
+    headerFont = fit_font(MONO_FONT_NAME, "0", (WIDTH // 4, HEADER_HEIGHT))
     for wDay in range(7):
         x = wDay * WIDTH
         width = WIDTH
         if wDay == 6:
             width += EXTRA_WIDTH
         color = GRAY[215 if wDay & 1 else 225]
-        blit_text(image, DAY_FONT, (x, 0), WEEK_DAYS[wDay], WHITE, color,
-                  size=(width, HEADER_SIZE), anchor="")
+        blit_text(image, headerFont, (x, 0), WEEK_DAYS[wDay], WHITE, color,
+                  size=(width, HEADER_HEIGHT), anchor="")
     # Blit every week
-    y = HEADER_SIZE
+    y = HEADER_HEIGHT
     day = iDay
-    for day in range(day, day + _weeks * 7):
+    for day in range(day, day + weeks * 7):
         paint_day(day)
         y += HEIGHT
     pg.image.save(image, _path + ".png")
     print("PNG was created")
 
 
-def main():
-    """Create a calendar with the configuration set in cPath"""
-    cPath = "config.json"
+if __name__ == "__main__":
     try:
-        with open(cPath, "rb") as f:
+        with open("config.json", "rb") as f:
             config = load(f)
     except FileNotFoundError:
-        raise Exception("Missing %s" % cPath)
+        raise Exception("Missing config.json")
     generate(**config)
-
-if __name__ == "__main__":
-    main()
