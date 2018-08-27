@@ -4,6 +4,7 @@ Create useful calendars.
 ### Dependencies
 - Python 3
 - pygame
+- [Dejavu Fonts](https://dejavu-fonts.github.io/) (You might already have them installed)
 
 ### Usage
 
@@ -11,7 +12,7 @@ To get a custom calendar first configure `config.json` and then run `main.py`.
 
 ## Screenshot:
 
-![Calendar img](/screenshot.png "Calendar example")
+![Calendar img](images/screenshot.png "Calendar example")
 
 ##### Note
 
