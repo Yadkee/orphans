@@ -17,7 +17,6 @@ A4 = {75: (595, 842), 96: (794, 1123),
 SIZE = A4[150]
 WIDTH, EXTRA_WIDTH = divmod(SIZE[0], 7)
 HEADER_HEIGHT = SIZE[1] // 35
-BD = 1
 WEEK_DAYS = ("L", "M", "X", "J", "V", "S", "D")  # You may want to change this
 GRAY = [(i, i, i) for i in range(256)]
 WHITE = GRAY[255]
@@ -136,17 +135,17 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
             offset = (daySize[0] if not a and dayNumber != 1 else 0)
             birthdayHeigth = min(bottomY - topY, height // 3)
             if birthdayHeigth >= 8:
-                birthdayImageSide = int(birthdayHeigth * 0.8)
+                birthdayImageSide = min(int(birthdayHeigth * 0.8), width // 4)
                 birthdayImageSize = (birthdayImageSide, birthdayImageSide)
                 birthdayImage = pg.transform.scale(GIFT_PNG, birthdayImageSize)
                 image.blit(birthdayImage, (x + offset, topY))
                 offset += birthdayImageSide
             birthdayWidth = (width - offset)
-            birthdaySize = (birthdayWidth, birthdayHeigth)
+            birthdaySize = (birthdayWidth, birthdayImageSide)
             birthdayFont = fit_font(BIRTHDAY_FONT_NAME, name, birthdaySize)
             blit_text(image, birthdayFont, (x + offset, topY),
-                      name, GRAY[100], color, size=birthdaySize, anchor="W")
-            topY += birthdayHeigth
+                      name, GRAY[100], color, size=birthdaySize, anchor="SW")
+            topY += birthdayImageSide
         # Blit period
         if day in show:
             periodText = "{%s}" % periodName
@@ -200,11 +199,8 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods):
         blit_text(image, headerFont, (x, 0), WEEK_DAYS[wDay], WHITE, color,
                   size=(width, HEADER_HEIGHT), anchor="")
     # Blit every week
-    y = HEADER_HEIGHT
-    day = iDay
-    for day in range(day, day + weeks * 7):
+    for day in range(iDay, iDay + weeks * 7):
         paint_day(day)
-        y += HEIGHT
     pg.image.save(image, _path + ".png")
     print("PNG was created")
 
