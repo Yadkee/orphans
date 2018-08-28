@@ -13,5 +13,5 @@
          "weekend": "00F",
          "exceptions": ["20/8/18"]}
     ],
-    "smoothFactor": 235
+    "_smoothFactor": 235
 }

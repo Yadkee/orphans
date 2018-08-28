@@ -88,14 +88,14 @@ def str2Day(s):
     return (str2Date(day), (color, name))
 
 
-def generate(_path, _iDay, _weeks, _birthdays, _periods, smoothFactor):
+def generate(_path, _iDay, _weeks, _birthdays, _periods, _smoothFactor):
     def paint_day(day):
         def smooth_color(color, isOdd):
-            val = (255 - smoothFactor) // 5
+            val = (255 - _smoothFactor) // 5
             if isOdd:
-                return [smoothFactor + i * val // 51 for i in color]
+                return [_smoothFactor + i * val // 51 for i in color]
             else:
-                return [smoothFactor + 5 + i * (val - 1) // 51 for i in color]
+                return [_smoothFactor + 5 + i * (val - 1) // 51 for i in color]
         # Figure postion, size and color
         date = date_class.fromordinal(day + 1)
         dayNumber = date.day
