@@ -80,12 +80,8 @@ def str2Date(s):
 
 def str2Birthday(s):
     day, name = s.split("-")
-    return (str2Date(day), name)
-
-
-def str2Day(s):
-    day, color, name = s.split("-")
-    return (str2Date(day), (color, name))
+    d, m = map(int, day.split("/"))
+    return (m * 100 + d, name)
 
 
 def generate(_path, _iDay, _weeks, _birthdays, _periods, _smoothFactor):
@@ -99,6 +95,7 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods, _smoothFactor):
         # Figure postion, size and color
         date = date_class.fromordinal(day + 1)
         dayNumber = date.day
+        birthdayDate = dayNumber + date.month * 100
         week = (day - iDay) // 7
         x = day % 7 * WIDTH
         y = HEADER_HEIGHT + week * HEIGHT + (dayNumber < 8)
@@ -129,7 +126,7 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods, _smoothFactor):
         bottomY = y + height
         # Blit birthdays
         try:
-            names = enumerate(birthdays[day].split("\n"))
+            names = enumerate(birthdays[birthdayDate].split("\n"))
         except KeyError:
             names = []
         for a, name in names:
