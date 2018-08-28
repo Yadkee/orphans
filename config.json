@@ -1,7 +1,7 @@
 {
     "_path": "calendar",
     "_iDay": "13/8/18",
-    "_weeks": 10,
+    "_weeks": 13,
     "_birthdays": [
         "25/9-Peter"
     ],
@@ -12,5 +12,6 @@
          "color": "00F",
          "weekend": "00F",
          "exceptions": ["20/8/18"]}
-    ]
+    ],
+    "smoothFactor": 235
 }
