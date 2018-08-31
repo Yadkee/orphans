@@ -21,9 +21,6 @@ WEEK_DAYS = ("L", "M", "X", "J", "V", "S", "D")  # You may want to change this
 GRAY = [(i, i, i) for i in range(256)]
 WHITE = GRAY[255]
 BLACK = GRAY[0]
-COLORS = {"F00": (255, 0, 0), "0F0": (0, 255, 0), "00F": (0, 0, 255),
-          "FF0": (255, 255, 0), "0FF": (0, 255, 255), "F0F": (255, 0, 255),
-          "FFF": WHITE, "000": BLACK}
 
 
 def blit_text(surface, font, pos, text, fontColor, backgroundColor=None,
@@ -82,6 +79,11 @@ def str2Birthday(s):
     day, name = s.split("-")
     d, m = map(int, day.split("/"))
     return (m * 100 + d, name)
+
+
+@lru_cache(maxsize=None)
+def get_color(s):
+    return [int(s[i] + "F", 16) for i in range(3)]
 
 
 def generate(_path, _iDay, _weeks, _birthdays, _periods, _smoothFactor):
@@ -163,8 +165,8 @@ def generate(_path, _iDay, _weeks, _birthdays, _periods, _smoothFactor):
         if name == "":
             name = None
         _color = period.pop("color", "F00")
-        color = COLORS[_color]
-        weekend = COLORS[period.pop("weekend", _color)]
+        color = get_color(_color)
+        weekend = get_color(period.pop("weekend", _color))
         exceptions = set(map(str2Date, period.pop("exceptions", tuple())))
         for day in range(_iDay, fDay + 1):
             if day in exceptions:
