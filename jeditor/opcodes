@@ -1,0 +1,205 @@
+00;nop;0;[No change];perform no operation
+01;aconst_null;0;-> null;push a null reference onto the stack
+02;iconst_m1;0;-> -1;load the int value −1 onto the stack
+03;iconst_0;0;-> 0;load the int value 0 onto the stack
+04;iconst_1;0;-> 1;load the int value 1 onto the stack
+05;iconst_2;0;-> 2;load the int value 2 onto the stack
+06;iconst_3;0;-> 3;load the int value 3 onto the stack
+07;iconst_4;0;-> 4;load the int value 4 onto the stack
+08;iconst_5;0;-> 5;load the int value 5 onto the stack
+09;lconst_0;0;-> 0L;push 0L (the number zero with type long) onto the stack
+0a;lconst_1;0;-> 1L;push 1L (the number one with type long) onto the stack
+0b;fconst_0;0;-> 0.0f;push 0.0f on the stack
+0c;fconst_1;0;-> 1.0f;push 1.0f on the stack
+0d;fconst_2;0;-> 2.0f;push 2.0f on the stack
+0e;dconst_0;0;-> 0.0;push the constant 0.0 (a double) onto the stack
+0f;dconst_1;0;-> 1.0;push the constant 1.0 (a double) onto the stack
+10;bipush;1: byte;-> value;push a byte onto the stack as an integer value
+11;sipush;2: byte1, byte2;-> value;push a short onto the stack as an integer value
+12;ldc;1: index;-> value;push a constant #index from a constant pool (String, int, float, Class, java.lang.invoke.MethodType, or java.lang.invoke.MethodHandle) onto the stack
+13;ldc_w;2: indexbyte1, indexbyte2;-> value;push a constant #index from a constant pool (String, int, float, Class, java.lang.invoke.MethodType, or java.lang.invoke.MethodHandle) onto the stack (wide index is constructed as indexbyte1 << 8 + indexbyte2)
+14;ldc2_w;2: indexbyte1, indexbyte2;-> value;push a constant #index from a constant pool (double or long) onto the stack (wide index is constructed as indexbyte1 << 8 + indexbyte2)
+15;iload;1: index;-> value;load an int value from a local variable #index
+16;lload;1: index;-> value;load a long value from a local variable #index
+17;fload;1: index;-> value;load a float value from a local variable #index
+18;dload;1: index;-> value;load a double value from a local variable #index
+19;aload;1: index;-> objectref;load a reference onto the stack from a local variable #index
+1a;iload_0;0;-> value;load an int value from local variable 0
+1b;iload_1;0;-> value;load an int value from local variable 1
+1c;iload_2;0;-> value;load an int value from local variable 2
+1d;iload_3;0;-> value;load an int value from local variable 3
+1e;lload_0;0;-> value;load a long value from a local variable 0
+1f;lload_1;0;-> value;load a long value from a local variable 1
+20;lload_2;0;-> value;load a long value from a local variable 2
+21;lload_3;0;-> value;load a long value from a local variable 3
+22;fload_0;0;-> value;load a float value from local variable 0
+23;fload_1;0;-> value;load a float value from local variable 1
+24;fload_2;0;-> value;load a float value from local variable 2
+25;fload_3;0;-> value;load a float value from local variable 3
+26;dload_0;0;-> value;load a double from local variable 0
+27;dload_1;0;-> value;load a double from local variable 1
+28;dload_2;0;-> value;load a double from local variable 2
+29;dload_3;0;-> value;load a double from local variable 3
+2a;aload_0;0;-> objectref;load a reference onto the stack from local variable 0
+2b;aload_1;0;-> objectref;load a reference onto the stack from local variable 1
+2c;aload_2;0;-> objectref;load a reference onto the stack from local variable 2
+2d;aload_3;0;-> objectref;load a reference onto the stack from local variable 3
+2e;iaload;0;arrayref, index -> value;load an int from an array
+2f;laload;0;arrayref, index -> value;load a long from an array
+30;faload;0;arrayref, index -> value;load a float from an array
+31;daload;0;arrayref, index -> value;load a double from an array
+32;aaload;0;arrayref, index -> value;load onto the stack a reference from an array
+33;baload;0;arrayref, index -> value;load a byte or Boolean value from an array
+34;caload;0;arrayref, index -> value;load a char from an array
+35;saload;0;arrayref, index -> value;load short from array
+36;istore;1: index;value ->;store int value into variable #index
+37;lstore;1: index;value ->;store a long value in a local variable #index
+38;fstore;1: index;value ->;store a float value into a local variable #index
+39;dstore;1: index;value ->;store a double value into a local variable #index
+3a;astore;1: index;objectref ->;store a reference into a local variable #index
+3b;istore_0;0;value ->;store int value into variable 0
+3c;istore_1;0;value ->;store int value into variable 1
+3d;istore_2;0;value ->;store int value into variable 2
+3e;istore_3;0;value ->;store int value into variable 3
+3f;lstore_0;0;value ->;store a long value in a local variable 0
+40;lstore_1;0;value ->;store a long value in a local variable 1
+41;lstore_2;0;value ->;store a long value in a local variable 2
+42;lstore_3;0;value ->;store a long value in a local variable 3
+43;fstore_0;0;value ->;store a float value into local variable 0
+44;fstore_1;0;value ->;store a float value into local variable 1
+45;fstore_2;0;value ->;store a float value into local variable 2
+46;fstore_3;0;value ->;store a float value into local variable 3
+47;dstore_0;0;value ->;store a double into local variable 0
+48;dstore_1;0;value ->;store a double into local variable 1
+49;dstore_2;0;value ->;store a double into local variable 2
+4a;dstore_3;0;value ->;store a double into local variable 3
+4b;astore_0;0;objectref ->;store a reference into local variable 0
+4c;astore_1;0;objectref ->;store a reference into local variable 1
+4d;astore_2;0;objectref ->;store a reference into local variable 2
+4e;astore_3;0;objectref ->;store a reference into local variable 3
+4f;iastore;0;arrayref, index, value ->;store an int into an array
+50;lastore;0;arrayref, index, value ->;store a long to an array
+51;fastore;0;arrayref, index, value ->;store a float in an array
+52;dastore;0;arrayref, index, value ->;store a double into an array
+53;aastore;0;arrayref, index, value ->;store into a reference in an array
+54;bastore;0;arrayref, index, value ->;store a byte or Boolean value into an array
+55;castore;0;arrayref, index, value ->;store a char into an array
+56;sastore;0;arrayref, index, value ->;store short to array
+57;pop;0;value ->;discard the top value on the stack
+58;pop2;0;{value2, value1} ->;discard the top two values on the stack (or one value, if it is a double or long)
+59;dup;0;value -> value, value;duplicate the value on top of the stack
+5a;dup_x1;0;value2, value1 -> value1, value2, value1;insert a copy of the top value into the stack two values from the top. value1 and value2 must not be of the type double or long.
+5b;dup_x2;0;value3, value2, value1 -> value1, value3, value2, value1;insert a copy of the top value into the stack two (if value2 is double or long it takes up the entry of value3, too) or three values (if value2 is neither double nor long) from the top
+5c;dup2;0;{value2, value1} -> {value2, value1}, {value2, value1};duplicate top two stack words (two values, if value1 is not double nor long; a single value, if value1 is double or long)
+5d;dup2_x1;0;value3, {value2, value1} -> {value2, value1}, value3, {value2, value1};duplicate two words and insert beneath third word (see explanation above)
+5e;dup2_x2;0;{value4, value3}, {value2, value1} -> {value2, value1}, {value4, value3}, {value2, value1};duplicate two words and insert beneath fourth word
+5f;swap;0;value2, value1 -> value1, value2;swaps two top words on the stack (note that value1 and value2 must not be double or long)
+60;iadd;0;value1, value2 -> result;add two ints
+61;ladd;0;value1, value2 -> result;add two longs
+62;fadd;0;value1, value2 -> result;add two floats
+63;dadd;0;value1, value2 -> result;add two doubles
+64;isub;0;value1, value2 -> result;int subtract
+65;lsub;0;value1, value2 -> result;subtract two longs
+66;fsub;0;value1, value2 -> result;subtract two floats
+67;dsub;0;value1, value2 -> result;subtract a double from another
+68;imul;0;value1, value2 -> result;multiply two integers
+69;lmul;0;value1, value2 -> result;multiply two longs
+6a;fmul;0;value1, value2 -> result;multiply two floats
+6b;dmul;0;value1, value2 -> result;multiply two doubles
+6c;idiv;0;value1, value2 -> result;divide two integers
+6d;ldiv;0;value1, value2 -> result;divide two longs
+6e;fdiv;0;value1, value2 -> result;divide two floats
+6f;ddiv;0;value1, value2 -> result;divide two doubles
+70;irem;0;value1, value2 -> result;logical int remainder
+71;lrem;0;value1, value2 -> result;remainder of division of two longs
+72;frem;0;value1, value2 -> result;get the remainder from a division between two floats
+73;drem;0;value1, value2 -> result;get the remainder from a division between two doubles
+74;ineg;0;value -> result;negate int
+75;lneg;0;value -> result;negate a long
+76;fneg;0;value -> result;negate a float
+77;dneg;0;value -> result;negate a double
+78;ishl;0;value1, value2 -> result;int shift left
+79;lshl;0;value1, value2 -> result;bitwise shift left of a long value1 by int value2 positions
+7a;ishr;0;value1, value2 -> result;int arithmetic shift right
+7b;lshr;0;value1, value2 -> result;bitwise shift right of a long value1 by int value2 positions
+7c;iushr;0;value1, value2 -> result;int logical shift right
+7d;lushr;0;value1, value2 -> result;bitwise shift right of a long value1 by int value2 positions, unsigned
+7e;iand;0;value1, value2 -> result;perform a bitwise AND on two integers
+7f;land;0;value1, value2 -> result;bitwise AND of two longs
+80;ior;0;value1, value2 -> result;bitwise int OR
+81;lor;0;value1, value2 -> result;bitwise OR of two longs
+82;ixor;0;value1, value2 -> result;int xor
+83;lxor;0;value1, value2 -> result;bitwise XOR of two longs
+84;iinc;2: index, const;[No change];increment local variable #index by signed byte const
+85;i2l;0;value -> result;convert an int into a long
+86;i2f;0;value -> result;convert an int into a float
+87;i2d;0;value -> result;convert an int into a double
+88;l2i;0;value -> result;convert a long to a int
+89;l2f;0;value -> result;convert a long to a float
+8a;l2d;0;value -> result;convert a long to a double
+8b;f2i;0;value -> result;convert a float to an int
+8c;f2l;0;value -> result;convert a float to a long
+8d;f2d;0;value -> result;convert a float to a double
+8e;d2i;0;value -> result;convert a double to an int
+8f;d2l;0;value -> result;convert a double to a long
+90;d2f;0;value -> result;convert a double to a float
+91;i2b;0;value -> result;convert an int into a byte
+92;i2c;0;value -> result;convert an int into a character
+93;i2s;0;value -> result;convert an int into a short
+94;lcmp;0;value1, value2 -> result;push 0 if the two longs are the same, 1 if value1 is greater than value2, -1 otherwise
+95;fcmpl;0;value1, value2 -> result;compare two floats
+96;fcmpg;0;value1, value2 -> result;compare two floats
+97;dcmpl;0;value1, value2 -> result;compare two doubles
+98;dcmpg;0;value1, value2 -> result;compare two doubles
+99;ifeq;2: branchbyte1, branchbyte2;value ->;if value is 0, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+9a;ifne;2: branchbyte1, branchbyte2;value ->;if value is not 0, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+9b;iflt;2: branchbyte1, branchbyte2;value ->;if value is less than 0, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+9c;ifge;2: branchbyte1, branchbyte2;value ->;if value is greater than or equal to 0, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+9d;ifgt;2: branchbyte1, branchbyte2;value ->;if value is greater than 0, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+9e;ifle;2: branchbyte1, branchbyte2;value ->;if value is less than or equal to 0, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+9f;if_icmpeq;2: branchbyte1, branchbyte2;value1, value2 ->;if ints are equal, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a0;if_icmpne;2: branchbyte1, branchbyte2;value1, value2 ->;if ints are not equal, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a1;if_icmplt;2: branchbyte1, branchbyte2;value1, value2 ->;if value1 is less than value2, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a2;if_icmpge;2: branchbyte1, branchbyte2;value1, value2 ->;if value1 is greater than or equal to value2, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a3;if_icmpgt;2: branchbyte1, branchbyte2;value1, value2 ->;if value1 is greater than value2, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a4;if_icmple;2: branchbyte1, branchbyte2;value1, value2 ->;if value1 is less than or equal to value2, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a5;if_acmpeq;2: branchbyte1, branchbyte2;value1, value2 ->;if references are equal, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a6;if_acmpne;2: branchbyte1, branchbyte2;value1, value2 ->;if references are not equal, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a7;goto;2: branchbyte1, branchbyte2;[no change];goes to another instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+a8;jsr;2: branchbyte1, branchbyte2;-> address;jump to subroutine at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2) and place the return address on the stack
+a9;ret;1: index;[No change];continue execution from address taken from a local variable #index (the asymmetry with jsr is intentional)
+aa;tableswitch;16: [0–3 bytes padding], defaultbyte1, defaultbyte2, defaultbyte3, defaultbyte4, lowbyte1, lowbyte2, lowbyte3, lowbyte4, highbyte1, highbyte2, highbyte3, highbyte4, jump offsets...;index ->;continue execution from an address in the table at offset index
+ab;lookupswitch;8: <0–3 bytes padding>, defaultbyte1, defaultbyte2, defaultbyte3, defaultbyte4, npairs1, npairs2, npairs3, npairs4, match-offset pairs...;key ->;a target address is looked up from a table using a key and execution continues from the instruction at that address
+ac;ireturn;0;value -> [empty];return an integer from a method
+ad;lreturn;0;value -> [empty];return a long value
+ae;freturn;0;value -> [empty];return a float
+af;dreturn;0;value -> [empty];return a double from a method
+b0;areturn;0;objectref -> [empty];return a reference from a method
+b1;return;0;-> [empty];return void from method
+b2;getstatic;2: indexbyte1, indexbyte2;-> value;get a static field value of a class, where the field is identified by field reference in the constant pool index (indexbyte1 << 8 + indexbyte2)
+b3;putstatic;2: indexbyte1, indexbyte2;value ->;set static field to value in a class, where the field is identified by a field reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+b4;getfield;2: indexbyte1, indexbyte2;objectref -> value;get a field value of an object objectref, where the field is identified by field reference in the constant pool index (indexbyte1 << 8 + indexbyte2)
+b5;putfield;2: indexbyte1, indexbyte2;objectref, value ->;set field to value in an object objectref, where the field is identified by a field reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+b6;invokevirtual;2: indexbyte1, indexbyte2;objectref, [arg1, arg2, ...] -> result;invoke virtual method on object objectref and puts the result on the stack (might be void); the method is identified by method reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+b7;invokespecial;2: indexbyte1, indexbyte2;objectref, [arg1, arg2, ...] -> result;invoke instance method on object objectref and puts the result on the stack (might be void); the method is identified by method reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+b8;invokestatic;2: indexbyte1, indexbyte2;[arg1, arg2, ...] -> result;invoke a static method and puts the result on the stack (might be void); the method is identified by method reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+b9;invokeinterface;4: indexbyte1, indexbyte2, count, 0;objectref, [arg1, arg2, ...] -> result;invokes an interface method on object objectref and puts the result on the stack (might be void); the interface method is identified by method reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+ba;invokedynamic;4: indexbyte1, indexbyte2, 0, 0;[arg1, [arg2 ...]] -> result;invokes a dynamic method and puts the result on the stack (might be void); the method is identified by method reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+bb;new;2: indexbyte1, indexbyte2;-> objectref;create new object of type identified by class reference in constant pool index (indexbyte1 << 8 + indexbyte2)
+bc;newarray;1: atype;count -> arrayref;create new array with count elements of primitive type identified by atype
+bd;anewarray;2: indexbyte1, indexbyte2;count -> arrayref;create a new array of references of length count and component type identified by the class reference index (indexbyte1 << 8 + indexbyte2) in the constant pool
+be;arraylength;0;arrayref -> length;get the length of an array
+bf;athrow;0;objectref -> [empty], objectref;throws an error or exception (notice that the rest of the stack is cleared, leaving only a reference to the Throwable)
+c0;checkcast;2: indexbyte1, indexbyte2;objectref -> objectref;checks whether an objectref is of a certain type, the class reference of which is in the constant pool at index (indexbyte1 << 8 + indexbyte2)
+c1;instanceof;2: indexbyte1, indexbyte2;objectref -> result;determines if an object objectref is of a given type, identified by class reference index in constant pool (indexbyte1 << 8 + indexbyte2)
+c2;monitorenter;0;objectref ->;enter monitor for object ("grab the lock" – start of synchronized() section)
+c3;monitorexit;0;objectref ->;exit monitor for object ("release the lock" – end of synchronized() section)
+c4;wide;3/5: opcode, indexbyte1, indexbyte2 or iinc, indexbyte1, indexbyte2, countbyte1, countbyte2;[same as for corresponding instructions];execute opcode, where opcode is either iload, fload, aload, lload, dload, istore, fstore, astore, lstore, dstore, or ret, but assume the index is 16 bit; or execute iinc, where the index is 16 bits and the constant to increment by is a signed 16 bit short
+c5;multianewarray;3: indexbyte1, indexbyte2, dimensions;count1, [count2,...] -> arrayref;create a new array of dimensions dimensions of type identified by class reference in constant pool index (indexbyte1 << 8 + indexbyte2); the sizes of each dimension is identified by count1, [count2, etc.]
+c6;ifnull;2: branchbyte1, branchbyte2;value ->;if value is null, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+c7;ifnonnull;2: branchbyte1, branchbyte2;value ->;if value is not null, branch to instruction at branchoffset (signed short constructed from unsigned bytes branchbyte1 << 8 + branchbyte2)
+c8;goto_w;4: branchbyte1, branchbyte2, branchbyte3, branchbyte4;[no change];goes to another instruction at branchoffset (signed int constructed from unsigned bytes branchbyte1 << 24 + branchbyte2 << 16 + branchbyte3 << 8 + branchbyte4)
+c9;jsr_w;4: branchbyte1, branchbyte2, branchbyte3, branchbyte4;-> address;jump to subroutine at branchoffset (signed int constructed from unsigned bytes branchbyte1 << 24 + branchbyte2 << 16 + branchbyte3 << 8 + branchbyte4) and place the return address on the stack
+ca;breakpoint;0;None;reserved for breakpoints in Java debuggers; should not appear in any class file
+fe;impdep1;0;None;reserved for implementation-dependent operations within debuggers; should not appear in any class file
+ff;impdep2;0;None;reserved for implementation-dependent operations within debuggers; should not appear in any class file
