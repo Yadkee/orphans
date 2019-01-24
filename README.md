@@ -10,9 +10,11 @@ Create useful calendars.
 
 To get a custom calendar first configure `config.json` and then run `main.py`.
 
-## Screenshot:
+## Screenshots:
 
-![Calendar img](images/screenshot.png "Calendar example")
+![Calendar img](images/sleep.png "Sleep example")
+
+![Calendar img](images/cal.png "Calendar example")
 
 ##### Note
 

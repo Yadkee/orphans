@@ -1,0 +1,123 @@
+{
+  "iDay_": "24/01/2019",
+  "weeks_": 26,
+  "smoothFactor_": 205,
+  "birthdays_": [
+    "9/9-Peter",
+    "12/9-George",
+    "7/1-Linda",
+    "18/1-Rex",
+    "22/1-Sophie",
+    "26/3-Claire",
+    "11/4-Tina",
+    "16/4-Clark",
+    "18/4-Doni",
+    "31/5-Meredith",
+    "1/6-Emily",
+    "5/6-Amanda",
+    "21/6-Jake",
+    "17/7-Iris",
+    "27/9-Peter 2",
+    "1/1-Michael"
+  ],
+  "periods_": [
+    {
+      "iDay": "05/09/2018",
+      "fDay": "21/12/2018",
+      "name": "University",
+      "color": "0F0",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "12/10/2018",
+      "fDay": "12/10/2018",
+      "name": "",
+      "color": "F00",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "01/11/2018",
+      "fDay": "02/11/2018",
+      "name": "",
+      "color": "F00",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "09/11/2018",
+      "fDay": "09/11/2018",
+      "name": "",
+      "color": "F00",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "06/12/2018",
+      "fDay": "06/12/2018",
+      "name": "",
+      "color": "F00",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "07/12/2018",
+      "fDay": "07/12/2018",
+      "name": "Fiesta_UPM",
+      "color": "F0F",
+      "weekend": "F0F"
+    },
+    {
+      "iDay": "08/01/2019",
+      "fDay": "23/01/2019",
+      "name": "Exámenes",
+      "color": "FF0",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "24/01/2019",
+      "fDay": "12/04/2019",
+      "name": "University",
+      "color": "0F0",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "23/04/2019",
+      "fDay": "24/05/2019",
+      "name": "University",
+      "color": "0F0",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "29/05/2019",
+      "fDay": "13/06/2019",
+      "name": "Exámenes",
+      "color": "FF0",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "21/06/2019",
+      "fDay": "09/07/2019",
+      "name": "Extraordinaria",
+      "color": "F0F",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "28/01/2019",
+      "fDay": "28/01/2019",
+      "name": "",
+      "color": "F00",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "01/05/2019",
+      "fDay": "03/05/2019",
+      "name": "",
+      "color": "F00",
+      "weekend": "F00"
+    },
+    {
+      "iDay": "15/05/2019",
+      "fDay": "15/05/2019",
+      "name": "",
+      "color": "F00",
+      "weekend": "F00"
+    }
+  ]
+}
