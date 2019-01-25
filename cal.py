@@ -5,8 +5,9 @@ import os
 
 import common
 
+CURRENT_DIR = os.path.dirname(__file__)
 YEAR = datetime.date.today().year
-GIFT_PNG = common.pg_load(os.path.join("images", "gift.png"))
+GIFT_PNG = common.pg_load(os.path.join(CURRENT_DIR, "images", "gift.png"))
 SIZE = common.A4[150]
 WIDTH, EXTRA_WIDTH = divmod(SIZE[0], 7)
 HEADER_HEIGHT = SIZE[1] // 35
